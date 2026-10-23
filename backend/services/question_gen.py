@@ -12,6 +12,7 @@ from groq import Groq
 
 from backend.core.config import settings
 from backend.services.ingestion import query_chunks
+from backend.services.interview import InterviewDifficulty
 
 
 def generate_question(
@@ -19,6 +20,7 @@ def generate_question(
     candidate_summary: Dict,
     asked_questions: List[str],
     transcript: List[Dict],
+    difficulty: InterviewDifficulty = InterviewDifficulty.BEGINNER,
 ) -> str:
     """
     Generate a single interview question grounded in the resume / JD.
@@ -29,6 +31,8 @@ def generate_question(
     - No invented experience.
     - No repetition of previously asked questions.
     """
+    difficulty = InterviewDifficulty(difficulty)
+
     # Retrieve relevant chunks from ChromaDB
     query_text = _build_retrieval_query(stage, candidate_summary)
     resume_chunks = query_chunks(query_text, source="resume", n_results=3)
@@ -39,7 +43,7 @@ def generate_question(
     asked_list = "\n".join(f"- {q}" for q in asked_questions) or "(none yet)"
 
     # Build the generation prompt with strong grounding + safety instructions
-    system_prompt = _build_system_prompt()
+    system_prompt = _build_system_prompt(difficulty)
     user_prompt = f"""Current interview stage: {stage}
 
 CANDIDATE SUMMARY:
@@ -118,8 +122,31 @@ Is this answer vague/generic, or detailed/specific? Respond accordingly."""
     return result
 
 
-def _build_system_prompt() -> str:
-    return """You are an AI mock interview coach for placement HR rounds.
+def _build_system_prompt(
+    difficulty: InterviewDifficulty = InterviewDifficulty.BEGINNER,
+) -> str:
+    difficulty_guidance = {
+        InterviewDifficulty.BEGINNER: (
+            "Ask basic definitions and introductory questions. Use clear language and "
+            "avoid assuming prior depth beyond the candidate's stated experience."
+        ),
+        InterviewDifficulty.INTERMEDIATE: (
+            "Ask practical technical questions and real-world scenario questions "
+            "appropriate to the candidate's role and stated experience."
+        ),
+        InterviewDifficulty.ADVANCED: (
+            "Ask deeper technical and problem-solving questions, including relevant "
+            "system-design questions when supported by the role and candidate context."
+        ),
+    }[difficulty]
+
+    return f"""You are an AI mock interview coach for placement HR rounds.
+
+DIFFICULTY: {difficulty.value}
+{difficulty_guidance}
+Apply this difficulty consistently to the first interview question and subsequent
+questions. Match the depth to the current stage; candidate questions and closing
+questions should remain appropriate to their stage.
 
 CORE RULES:
 1. You generate interview questions grounded in the candidate's actual resume and the job description.

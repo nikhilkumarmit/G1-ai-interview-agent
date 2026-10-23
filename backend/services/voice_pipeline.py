@@ -128,6 +128,7 @@ def build_system_messages(interview_manager: InterviewManager) -> List[Dict]:
     state = interview_manager.get_full_state()
     summary = state.get("candidate_summary", {})
     candidate_name = summary.get("candidate_name", "the candidate")
+    skills = ", ".join(summary.get("skills_found", []))
     raw_projects = summary.get("projects", [])
     projects = ", ".join([p if isinstance(p, str) else p.get("name", "") for p in raw_projects][:5])
 
@@ -142,8 +143,15 @@ CANDIDATE INFO:
 
 CURRENT STATE:
 - Stage: {state['stage']}
+- Difficulty: {state['difficulty']}
 - Questions remaining: {state['questions_remaining']}
 - Time remaining: {round(state['time_remaining'])}s
+
+DIFFICULTY GUIDELINES:
+- Beginner: basic definitions and introductory questions.
+- Intermediate: practical technical questions and real-world scenarios.
+- Advanced: deeper technical questions, problem-solving, and relevant system-design questions.
+Keep questions grounded in the resume and job description at every difficulty.
 
 RULES:
 1. You ARE an AI. Disclose this at the start. The session is recorded for feedback.
@@ -193,6 +201,7 @@ class InterviewToolHandler:
             candidate_summary=state["candidate_summary"],
             asked_questions=self.manager.state.asked_question_texts,
             transcript=state["transcript"],
+            difficulty=self.manager.state.difficulty,
         )
 
         self.manager.set_next_question(question)

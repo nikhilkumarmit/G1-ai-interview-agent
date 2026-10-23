@@ -23,12 +23,12 @@ const App = () => {
   const [candidateSummary, setCandidateSummary] = useState(null);
   const [report, setReport] = useState(null);
 
-  const handleUploadComplete = useCallback(async (summary) => {
+  const handleUploadComplete = useCallback(async (summary, difficulty = 'Beginner') => {
     try {
       await fetch(`${API_BASE}/api/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ candidate_summary: summary }),
+        body: JSON.stringify({ candidate_summary: summary, difficulty }),
       });
     } catch (e) {
       console.warn('API start interview error:', e);

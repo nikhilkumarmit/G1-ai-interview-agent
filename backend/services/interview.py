@@ -25,6 +25,12 @@ class Stage(str, Enum):
     CLOSING = "closing"
 
 
+class InterviewDifficulty(str, Enum):
+    BEGINNER = "Beginner"
+    INTERMEDIATE = "Intermediate"
+    ADVANCED = "Advanced"
+
+
 # Order of stages for automatic progression
 STAGE_ORDER = [
     Stage.INTRO,
@@ -67,6 +73,7 @@ class QuestionRecord:
 @dataclass
 class InterviewState:
     stage: str = Stage.INTRO.value
+    difficulty: str = InterviewDifficulty.BEGINNER.value
     questions_asked: List[Dict] = field(default_factory=list)
     time_started: float = 0.0
     time_limit: int = settings.TIME_LIMIT_SECONDS
@@ -94,6 +101,7 @@ class InterviewState:
     def to_payload(self) -> Dict:
         return {
             "stage": self.stage,
+            "difficulty": self.difficulty,
             "question": self.current_question,
             "time_remaining": round(self.time_remaining(), 1),
             "questions_remaining": self.questions_remaining(),
@@ -117,12 +125,18 @@ class InterviewManager:
 
     # ── Session lifecycle ───────────────────────────────────────
 
-    def start(self, candidate_summary: Dict = None) -> Dict:
+    def start(
+        self,
+        candidate_summary: Dict = None,
+        difficulty: InterviewDifficulty = InterviewDifficulty.BEGINNER,
+    ) -> Dict:
         """Start a new interview session."""
+        difficulty = InterviewDifficulty(difficulty)
         self.state = InterviewState()
         self.state.time_started = time.time()
         self.state.session_id = f"session_{int(time.time())}"
         self.state.candidate_summary = candidate_summary or {}
+        self.state.difficulty = difficulty.value
         self.state.stage = Stage.INTRO.value
 
         # Safety disclosure — mandated opening line
@@ -130,8 +144,20 @@ class InterviewManager:
             "Hello! I'm your AI interview coach. This is a practice session — "
             "I am an artificial intelligence and this conversation is being recorded "
             "for your feedback report only. I will never make any hiring decisions. "
-            "Let's begin! Could you please introduce yourself briefly?"
+            "Let's begin! "
         )
+        intro_questions = {
+            InterviewDifficulty.BEGINNER: (
+                "Could you briefly introduce yourself and share what interests you about this role?"
+            ),
+            InterviewDifficulty.INTERMEDIATE: (
+                "Could you briefly introduce yourself and highlight the experience most relevant to this role?"
+            ),
+            InterviewDifficulty.ADVANCED: (
+                "Could you briefly introduce yourself and highlight a technically challenging achievement relevant to this role?"
+            ),
+        }
+        opening += intro_questions[difficulty]
         self.state.current_question = opening
         self._add_transcript("agent", opening)
         self._persist()
@@ -256,6 +282,7 @@ class InterviewManager:
     def get_full_state(self) -> Dict:
         return {
             "stage": self.state.stage,
+            "difficulty": self.state.difficulty,
             "current_question": self.state.current_question,
             "questions_asked": self.state.questions_asked,
             "time_started": self.state.time_started,
@@ -307,6 +334,9 @@ class InterviewManager:
 
             self.state = InterviewState()
             self.state.stage = data.get("stage", Stage.INTRO.value)
+            self.state.difficulty = InterviewDifficulty(
+                data.get("difficulty", InterviewDifficulty.BEGINNER.value)
+            ).value
             self.state.questions_asked = data.get("questions_asked", [])
             self.state.time_started = data.get("time_started", time.time())
             self.state.transcript = data.get("transcript", [])

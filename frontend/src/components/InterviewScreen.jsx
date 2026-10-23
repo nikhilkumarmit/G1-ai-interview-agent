@@ -144,6 +144,9 @@ export default function InterviewScreen({ onEnd }) {
 
         {/* Right Info: Timer & Budget */}
         <div className="flex items-center gap-4 text-xs shrink-0">
+          <div className="px-3 py-1.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-300">
+            {interviewState?.difficulty || 'Beginner'} difficulty
+          </div>
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-zinc-300 font-mono">
             <Clock className="w-3.5 h-3.5 text-indigo-400" />
             <span>{formatTime(interviewState?.time_remaining)}</span>

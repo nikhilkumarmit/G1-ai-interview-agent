@@ -39,6 +39,7 @@ Browser / Microphone
 ## 🚀 Features
 
 - **Document Ingestion & Grounding**: Parses resumes (PDF/TXT) and Job Descriptions into semantic chunks tagged by section (skills, experience, projects, education). Generates a candidate profile summary.
+- **Interview Difficulty Selection**: Choose Beginner, Intermediate, or Advanced before starting. The opening and later technical questions are adjusted to the selected level while retaining resume/JD grounding; older `/api/start` requests default to Beginner.
 - **Stage Progression State Machine**: Progresses cleanly through 6 stages:
   1. `intro`: AI introduction, recording disclaimer, candidate icebreaker
   2. `resume`: Deep dive into verified resume achievements and tools
@@ -176,8 +177,16 @@ The project includes an automated test harness covering:
 
 Run tests:
 ```bash
+# Offline tests for difficulty selection, validation, prompt grounding, and backward compatibility
+python -m unittest tests.test_difficulty -v
+
+# LLM-backed evaluation suite (requires the configured Groq API key and evaluation data)
 python tests/test_evaluation.py
 ```
+
+The `/api/start` endpoint accepts an optional `difficulty` field with the exact value
+`Beginner`, `Intermediate`, or `Advanced`. Omitting it keeps older API clients compatible
+by starting a Beginner interview.
 
 ---
 
