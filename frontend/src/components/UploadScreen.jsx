@@ -23,6 +23,7 @@ const API_BASE = `http://${window.location.hostname}:8000`;
 export default function UploadScreen({ onComplete }) {
   const [resumeFile, setResumeFile] = useState(null);
   const [jdFile, setJdFile] = useState(null);
+  const [difficulty, setDifficulty] = useState('Beginner');
   const [loading, setLoading] = useState(false);
   const [summary, setSummary] = useState(null);
   const [error, setError] = useState('');
@@ -75,17 +76,17 @@ export default function UploadScreen({ onComplete }) {
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-between p-6 md:p-10 max-w-5xl mx-auto">
+    <div className="w-full min-h-screen flex flex-col justify-between p-6 md:p-10 max-w-5xl mx-auto">
       {/* Top Header */}
-      <header className="flex items-center justify-between pb-6 border-b border-white/5">
-        <div className="flex items-center gap-3">
+      <header className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-white/5">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
             <Mic className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-semibold tracking-tight text-white flex items-center gap-2">
+            <h1 className="text-lg sm:text-xl font-semibold tracking-tight text-white flex flex-wrap items-center gap-2">
               HR Placement Voice Coach
-              <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+              <span className="shrink-0 px-2 py-0.5 text-xs font-medium rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
                 Placement Edition
               </span>
             </h1>
@@ -247,6 +248,25 @@ export default function UploadScreen({ onComplete }) {
             </div>
 
             <div className="rounded-2xl p-6 bg-white/[0.03] border border-white/10 backdrop-blur-xl space-y-5">
+              <div className="pb-4 border-b border-white/5">
+                <label htmlFor="interview-difficulty" className="text-xs text-zinc-400 block font-medium">
+                  Interview Difficulty
+                </label>
+                <select
+                  id="interview-difficulty"
+                  value={difficulty}
+                  onChange={(e) => setDifficulty(e.target.value)}
+                  className="w-full mt-2 bg-zinc-900 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+                >
+                  <option value="Beginner">Beginner — basic and introductory</option>
+                  <option value="Intermediate">Intermediate — practical and scenario-based</option>
+                  <option value="Advanced">Advanced — deep technical and system design</option>
+                </select>
+                <p className="text-xs text-zinc-500 mt-2">
+                  Questions will use this level while staying grounded in your resume and target role.
+                </p>
+              </div>
+
               {/* Name & Target Role Inputs */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-4 border-b border-white/5">
                 <div>
@@ -360,7 +380,7 @@ export default function UploadScreen({ onComplete }) {
               </button>
 
               <button
-                onClick={() => onComplete(summary)}
+                onClick={() => onComplete(summary, difficulty)}
                 className="px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-medium text-sm flex items-center gap-2 shadow-lg shadow-emerald-500/20 cursor-pointer transition-all hover:scale-[1.02]"
               >
                 <span>Enter Live Voice Interview</span>

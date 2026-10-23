@@ -20,7 +20,7 @@ from fastapi.responses import JSONResponse
 
 from backend.core.config import settings
 from backend.services.ingestion import ingest_resume_and_jd, query_chunks
-from backend.services.interview import InterviewManager, Stage
+from backend.services.interview import InterviewDifficulty, InterviewManager, Stage
 from backend.services.question_gen import generate_question, decide_followup
 from backend.services.scoring import generate_report
 from backend.services.voice_pipeline import create_voice_pipeline
@@ -87,18 +87,36 @@ async def start_interview(request: Request = None):
     """Start a fresh interview session."""
     global interview_manager
     candidate_summary = None
+    difficulty = InterviewDifficulty.BEGINNER
 
     if request:
         try:
             body = await request.json()
+            if not isinstance(body, dict):
+                raise HTTPException(status_code=422, detail="Request body must be a JSON object")
             candidate_summary = body.get("candidate_summary")
+            try:
+                difficulty = InterviewDifficulty(
+                    body.get("difficulty", InterviewDifficulty.BEGINNER.value)
+                )
+            except (TypeError, ValueError):
+                valid_difficulties = [item.value for item in InterviewDifficulty]
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Invalid difficulty. Choose one of: {', '.join(valid_difficulties)}",
+                )
+        except HTTPException:
+            raise
         except Exception:
             pass
 
     if not candidate_summary:
         candidate_summary = interview_manager.state.candidate_summary
 
-    payload = interview_manager.start(candidate_summary=candidate_summary)
+    payload = interview_manager.start(
+        candidate_summary=candidate_summary,
+        difficulty=difficulty,
+    )
     return JSONResponse(content={"status": "started", **payload})
 
 
@@ -116,6 +134,7 @@ async def next_question():
         candidate_summary=state["candidate_summary"],
         asked_questions=interview_manager.state.asked_question_texts,
         transcript=state["transcript"],
+        difficulty=interview_manager.state.difficulty,
     )
     payload = interview_manager.set_next_question(question)
     return JSONResponse(content={"status": "ok", **payload})
@@ -241,7 +260,8 @@ async def text_pipeline_ws(websocket: WebSocket):
         or not state.get("transcript")
     ):
         interview_manager.start(
-            candidate_summary=interview_manager.state.candidate_summary
+            candidate_summary=interview_manager.state.candidate_summary,
+            difficulty=interview_manager.state.difficulty,
         )
 
     await websocket.send_json({
@@ -277,6 +297,7 @@ async def text_pipeline_ws(websocket: WebSocket):
                             candidate_summary=full_state["candidate_summary"],
                             asked_questions=interview_manager.state.asked_question_texts,
                             transcript=full_state["transcript"],
+                            difficulty=interview_manager.state.difficulty,
                         )
                         next_payload = interview_manager.set_next_question(question)
                         await websocket.send_json({

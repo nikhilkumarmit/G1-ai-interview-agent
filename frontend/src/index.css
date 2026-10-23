@@ -23,23 +23,21 @@
 }
 
 /* ── Base ────────────────────────────────────────────────────── */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
 html {
+  width: 100%;
+  min-width: 0;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 body {
+  width: 100%;
+  min-width: 0;
   background: var(--bg-primary);
   color: var(--text-primary);
   min-height: 100vh;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 /* Animated gradient background */
@@ -56,6 +54,9 @@ body::before {
 }
 
 #root {
+  width: 100%;
+  min-width: 0;
+  min-height: 100vh;
   position: relative;
   z-index: 1;
 }
