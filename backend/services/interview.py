@@ -45,6 +45,9 @@ STAGE_BUDGET = {
     Stage.CLOSING: 1,
 }
 
+QUESTION_DIFFICULTIES = ("beginner", "intermediate", "advanced")
+INTERVIEW_TYPES = ("technical", "behavioral", "hr", "mixed")
+
 
 @dataclass
 class TranscriptEntry:
@@ -76,6 +79,8 @@ class InterviewState:
     transcript: List[Dict] = field(default_factory=list)
     notes: List[str] = field(default_factory=list)
     candidate_summary: Dict = field(default_factory=dict)
+    question_difficulty: str = "intermediate"
+    interview_type: str = "mixed"
     asked_question_texts: List[str] = field(default_factory=list)  # dedup
     is_finished: bool = False
     session_id: str = ""
@@ -99,6 +104,8 @@ class InterviewState:
             "questions_remaining": self.questions_remaining(),
             "is_finished": self.is_finished,
             "session_id": self.session_id,
+            "question_difficulty": self.question_difficulty,
+            "interview_type": self.interview_type,
         }
 
 
@@ -117,12 +124,27 @@ class InterviewManager:
 
     # ── Session lifecycle ───────────────────────────────────────
 
-    def start(self, candidate_summary: Dict = None) -> Dict:
+    def start(
+        self,
+        candidate_summary: Dict = None,
+        question_difficulty: str = "intermediate",
+        interview_type: str = "mixed",
+    ) -> Dict:
         """Start a new interview session."""
+        if question_difficulty not in QUESTION_DIFFICULTIES:
+            raise ValueError(
+                f"question_difficulty must be one of: {', '.join(QUESTION_DIFFICULTIES)}"
+            )
+        if interview_type not in INTERVIEW_TYPES:
+            raise ValueError(
+                f"interview_type must be one of: {', '.join(INTERVIEW_TYPES)}"
+            )
         self.state = InterviewState()
         self.state.time_started = time.time()
         self.state.session_id = f"session_{int(time.time())}"
         self.state.candidate_summary = candidate_summary or {}
+        self.state.question_difficulty = question_difficulty
+        self.state.interview_type = interview_type
         self.state.stage = Stage.INTRO.value
 
         # Safety disclosure — mandated opening line
@@ -263,6 +285,8 @@ class InterviewManager:
             "questions_remaining": self.state.questions_remaining(),
             "transcript": self.state.transcript,
             "candidate_summary": self.state.candidate_summary,
+            "question_difficulty": self.state.question_difficulty,
+            "interview_type": self.state.interview_type,
             "is_finished": self.state.is_finished,
             "session_id": self.state.session_id,
         }
@@ -311,6 +335,16 @@ class InterviewManager:
             self.state.time_started = data.get("time_started", time.time())
             self.state.transcript = data.get("transcript", [])
             self.state.candidate_summary = data.get("candidate_summary", {})
+            question_difficulty = data.get("question_difficulty", "intermediate")
+            self.state.question_difficulty = (
+                question_difficulty
+                if question_difficulty in QUESTION_DIFFICULTIES
+                else "intermediate"
+            )
+            interview_type = data.get("interview_type", "mixed")
+            self.state.interview_type = (
+                interview_type if interview_type in INTERVIEW_TYPES else "mixed"
+            )
             self.state.is_finished = data.get("is_finished", False)
             self.state.session_id = data.get("session_id", "")
             self.state.asked_question_texts = [

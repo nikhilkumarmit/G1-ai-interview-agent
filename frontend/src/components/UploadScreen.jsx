@@ -5,7 +5,6 @@
 
 import { useState, useRef } from 'react';
 import {
-  UploadCloud,
   FileText,
   Briefcase,
   Sparkles,
@@ -21,12 +20,27 @@ import {
 const API_BASE = `http://${window.location.hostname}:8000`;
 
 export default function UploadScreen({ onComplete }) {
+  const [questionDifficulty, setQuestionDifficulty] = useState('intermediate');
+  const [interviewType, setInterviewType] = useState('mixed');
   const [resumeFile, setResumeFile] = useState(null);
   const [jdFile, setJdFile] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [starting, setStarting] = useState(false);
   const [summary, setSummary] = useState(null);
   const [error, setError] = useState('');
   const [dragOver, setDragOver] = useState({ resume: false, jd: false });
+
+  const difficultyOptions = [
+    { value: 'beginner', label: 'Beginner', level: 'Easy', description: 'Foundational concepts and straightforward questions' },
+    { value: 'intermediate', label: 'Intermediate', level: 'Medium', description: 'Practical application and relevant trade-offs' },
+    { value: 'advanced', label: 'Advanced', level: 'Hard', description: 'Deeper reasoning, complexity, and edge cases' },
+  ];
+  const interviewTypeOptions = [
+    { value: 'technical', label: 'Technical', description: 'Engineering concepts, implementation, and problem-solving' },
+    { value: 'behavioral', label: 'Behavioral', description: 'Teamwork, ownership, challenges, and STAR examples' },
+    { value: 'hr', label: 'HR', description: 'Motivation, communication, and career goals' },
+    { value: 'mixed', label: 'Mixed', description: 'A balanced combination of interview topics' },
+  ];
 
   const resumeRef = useRef(null);
   const jdRef = useRef(null);
@@ -246,6 +260,13 @@ export default function UploadScreen({ onComplete }) {
               <p className="text-xs text-zinc-400">Questions will be grounded in these verified resume details</p>
             </div>
 
+            {error && (
+              <div className="flex items-center gap-3 p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-sm">
+                <AlertCircle className="w-5 h-5 shrink-0 text-rose-400" />
+                <p>{error}</p>
+              </div>
+            )}
+
             <div className="rounded-2xl p-6 bg-white/[0.03] border border-white/10 backdrop-blur-xl space-y-5">
               {/* Name & Target Role Inputs */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-4 border-b border-white/5">
@@ -349,7 +370,66 @@ export default function UploadScreen({ onComplete }) {
               )}
             </div>
 
+            <section className="space-y-3" aria-labelledby="difficulty-heading">
+              <div>
+                <h3 id="difficulty-heading" className="text-sm font-semibold text-white">Choose question difficulty</h3>
+                <p className="text-xs text-zinc-400 mt-1">Questions will be tailored to your selected level.</p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3" role="radiogroup" aria-labelledby="difficulty-heading">
+                {difficultyOptions.map((option) => {
+                  const selected = questionDifficulty === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      onClick={() => setQuestionDifficulty(option.value)}
+                      className={`text-left p-4 rounded-xl border transition-colors cursor-pointer ${
+                        selected
+                          ? 'border-indigo-400 bg-indigo-500/10'
+                          : 'border-white/10 bg-white/[0.02] hover:border-white/20'
+                      }`}
+                    >
+                      <span className="flex items-center justify-between">
+                        <span className="font-semibold text-white text-sm">{option.label}</span>
+                        <span className="text-[10px] uppercase tracking-wide text-indigo-300">{option.level}</span>
+                      </span>
+                      <span className="block text-xs text-zinc-400 mt-2">{option.description}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
 
+            <section className="space-y-3" aria-labelledby="interview-type-heading">
+              <div>
+                <h3 id="interview-type-heading" className="text-sm font-semibold text-white">Choose interview type</h3>
+                <p className="text-xs text-zinc-400 mt-1">The interviewer will focus its questions on this format.</p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" role="radiogroup" aria-labelledby="interview-type-heading">
+                {interviewTypeOptions.map((option) => {
+                  const selected = interviewType === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      onClick={() => setInterviewType(option.value)}
+                      className={`text-left p-4 rounded-xl border transition-colors cursor-pointer ${
+                        selected
+                          ? 'border-indigo-400 bg-indigo-500/10'
+                          : 'border-white/10 bg-white/[0.02] hover:border-white/20'
+                      }`}
+                    >
+                      <span className="font-semibold text-white text-sm">{option.label}</span>
+                      <span className="block text-xs text-zinc-400 mt-2">{option.description}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
 
             <div className="flex items-center justify-between pt-2">
               <button
@@ -360,10 +440,21 @@ export default function UploadScreen({ onComplete }) {
               </button>
 
               <button
-                onClick={() => onComplete(summary)}
-                className="px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-medium text-sm flex items-center gap-2 shadow-lg shadow-emerald-500/20 cursor-pointer transition-all hover:scale-[1.02]"
+                disabled={starting}
+                onClick={async () => {
+                  setStarting(true);
+                  setError('');
+                  try {
+                    await onComplete(summary, questionDifficulty, interviewType);
+                  } catch (err) {
+                    setError(err.message || 'Could not start the interview.');
+                  } finally {
+                    setStarting(false);
+                  }
+                }}
+                className="px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-medium text-sm flex items-center gap-2 shadow-lg shadow-emerald-500/20 cursor-pointer transition-all hover:scale-[1.02] disabled:opacity-60 disabled:cursor-wait"
               >
-                <span>Enter Live Voice Interview</span>
+                <span>{starting ? 'Starting interview...' : 'Enter Live Voice Interview'}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>

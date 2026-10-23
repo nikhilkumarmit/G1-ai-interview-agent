@@ -20,20 +20,22 @@ const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const App = () => {
   const [screen, setScreen] = useState(SCREENS.UPLOAD);
-  const [candidateSummary, setCandidateSummary] = useState(null);
   const [report, setReport] = useState(null);
 
-  const handleUploadComplete = useCallback(async (summary) => {
-    try {
-      await fetch(`${API_BASE}/api/start`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ candidate_summary: summary }),
-      });
-    } catch (e) {
-      console.warn('API start interview error:', e);
+  const handleUploadComplete = useCallback(async (summary, questionDifficulty, interviewType) => {
+    const response = await fetch(`${API_BASE}/api/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        candidate_summary: summary,
+        question_difficulty: questionDifficulty,
+        interview_type: interviewType,
+      }),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || `Could not start interview (${response.status})`);
     }
-    setCandidateSummary(summary);
     setScreen(SCREENS.INTERVIEW);
   }, []);
 
@@ -43,7 +45,6 @@ const App = () => {
   }, []);
 
   const handleRestart = useCallback(() => {
-    setCandidateSummary(null);
     setReport(null);
     setScreen(SCREENS.UPLOAD);
   }, []);

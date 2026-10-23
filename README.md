@@ -39,6 +39,8 @@ Browser / Microphone
 ## 🚀 Features
 
 - **Document Ingestion & Grounding**: Parses resumes (PDF/TXT) and Job Descriptions into semantic chunks tagged by section (skills, experience, projects, education). Generates a candidate profile summary.
+- **Question Difficulty Selection**: Before starting, choose Beginner (Easy), Intermediate (Medium), or Advanced (Hard); generated questions are tailored to that level while remaining grounded in the candidate's documents.
+- **Interview Type Selection**: Choose Technical, Behavioral, HR, or Mixed before starting; generated questions and voice coaching are tailored to the selected interview format.
 - **Stage Progression State Machine**: Progresses cleanly through 6 stages:
   1. `intro`: AI introduction, recording disclaimer, candidate icebreaker
   2. `resume`: Deep dive into verified resume achievements and tools

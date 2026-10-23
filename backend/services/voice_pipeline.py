@@ -130,15 +130,33 @@ def build_system_messages(interview_manager: InterviewManager) -> List[Dict]:
     candidate_name = summary.get("candidate_name", "the candidate")
     raw_projects = summary.get("projects", [])
     projects = ", ".join([p if isinstance(p, str) else p.get("name", "") for p in raw_projects][:5])
+    skills = ", ".join(summary.get("skills_found", [])[:10])
+    difficulty = state.get("question_difficulty", "intermediate")
+    interview_type = state.get("interview_type", "mixed")
+    difficulty_guidance = {
+        "beginner": "Ask easy, foundational questions with clear wording and straightforward examples.",
+        "intermediate": "Ask moderately challenging practical questions about application and trade-offs.",
+        "advanced": "Ask challenging questions probing depth, complex trade-offs, scalability, or edge cases, grounded in the candidate's experience.",
+    }.get(difficulty, "Ask moderately challenging practical questions.")
+    interview_type_guidance = {
+        "technical": "Prioritize engineering knowledge, implementation, debugging, and system design.",
+        "behavioral": "Prioritize collaboration, ownership, challenges, and STAR-style examples.",
+        "hr": "Prioritize motivation, communication, teamwork, and career goals; avoid protected or personal topics.",
+        "mixed": "Balance technical experience, behavioral examples, role alignment, and motivation.",
+    }.get(interview_type, "Balance technical, behavioral, and role-related questions.")
 
 
-    system_content = f"""You are an AI mock interview coach conducting a practice HR round.
+    system_content = f"""You are an AI mock interview coach conducting a practice interview.
 
 CANDIDATE INFO:
 - Name: {candidate_name}
 - Skills: {skills}
 - Projects: {projects}
 - Target role: {summary.get('target_role', 'Software Engineer')}
+- Selected question difficulty: {difficulty}
+- Difficulty guidance: {difficulty_guidance}
+- Selected interview type: {interview_type}
+- Interview type guidance: {interview_type_guidance}
 
 CURRENT STATE:
 - Stage: {state['stage']}
@@ -193,6 +211,8 @@ class InterviewToolHandler:
             candidate_summary=state["candidate_summary"],
             asked_questions=self.manager.state.asked_question_texts,
             transcript=state["transcript"],
+            difficulty=state["question_difficulty"],
+            interview_type=state["interview_type"],
         )
 
         self.manager.set_next_question(question)

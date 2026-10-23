@@ -19,6 +19,8 @@ def generate_question(
     candidate_summary: Dict,
     asked_questions: List[str],
     transcript: List[Dict],
+    difficulty: str = "intermediate",
+    interview_type: str = "mixed",
 ) -> str:
     """
     Generate a single interview question grounded in the resume / JD.
@@ -40,7 +42,44 @@ def generate_question(
 
     # Build the generation prompt with strong grounding + safety instructions
     system_prompt = _build_system_prompt()
+    difficulty_guidance = {
+        "beginner": (
+            "Use easy, foundational questions with clear wording. Assume the candidate "
+            "may be new to the topic; focus on basic concepts and straightforward examples."
+        ),
+        "intermediate": (
+            "Use moderately challenging, practical questions. Ask the candidate to apply "
+            "concepts, explain decisions, or discuss relevant trade-offs."
+        ),
+        "advanced": (
+            "Use challenging questions that probe depth, complex trade-offs, scalability, "
+            "or edge cases, while staying strictly grounded in the candidate's experience."
+        ),
+    }.get(difficulty, "Use moderately challenging, practical interview questions.")
+    interview_type_guidance = {
+        "technical": (
+            "Prioritize technical knowledge, implementation choices, debugging, "
+            "system design, and engineering trade-offs from the candidate's experience."
+        ),
+        "behavioral": (
+            "Prioritize behavioral questions about collaboration, ownership, challenges, "
+            "communication, and outcomes; encourage structured STAR-style answers."
+        ),
+        "hr": (
+            "Prioritize motivation, communication, teamwork, adaptability, and career goals. "
+            "Never ask about protected or personal characteristics."
+        ),
+        "mixed": (
+            "Balance technical experience, behavioral examples, role alignment, and "
+            "motivation across the interview."
+        ),
+    }.get(interview_type, "Balance technical, behavioral, and role-related questions.")
+
     user_prompt = f"""Current interview stage: {stage}
+Interview type: {interview_type}
+Interview type guidance: {interview_type_guidance}
+Question difficulty: {difficulty}
+Difficulty guidance: {difficulty_guidance}
 
 CANDIDATE SUMMARY:
 {json.dumps(candidate_summary, indent=2)}
@@ -119,7 +158,7 @@ Is this answer vague/generic, or detailed/specific? Respond accordingly."""
 
 
 def _build_system_prompt() -> str:
-    return """You are an AI mock interview coach for placement HR rounds.
+    return """You are an AI mock interview coach for placement interviews.
 
 CORE RULES:
 1. You generate interview questions grounded in the candidate's actual resume and the job description.
