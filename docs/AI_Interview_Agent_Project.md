@@ -6,7 +6,6 @@ You are preparing for a placement HR round. Build a voice agent that reads your 
 
 It only gives feedback. It never decides to select or reject anyone.
 
-Build it as a single script (or notebook) that runs end to end.
 
 ---
 
