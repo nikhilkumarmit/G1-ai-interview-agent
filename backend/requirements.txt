@@ -1,0 +1,29 @@
+# ── Core ──────────────────────────────────────────────────────
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+python-dotenv>=1.0.0
+python-multipart>=0.0.9
+
+# ── Groq SDK ──────────────────────────────────────────────────
+groq>=0.15.0
+
+# ── LangChain (document loading & splitting) ─────────────────
+langchain-core>=0.3.0
+langchain-text-splitters>=0.3.0
+langchain-community>=0.3.0
+
+# ── Document loaders ─────────────────────────────────────────
+pypdf>=5.0.0
+
+# ── Vector database ──────────────────────────────────────────
+chromadb>=0.5.0
+
+# ── Pipecat voice pipeline ───────────────────────────────────
+pipecat-ai[groq,websocket]>=0.0.50
+
+# ── Testing / evaluation ─────────────────────────────────────
+jiwer>=3.0.0
+
+# ── WebSocket ────────────────────────────────────────────────
+websockets>=13.0
+
