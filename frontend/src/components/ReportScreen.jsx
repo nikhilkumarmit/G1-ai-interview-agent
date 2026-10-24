@@ -1,32 +1,12 @@
-/**
- * ReportScreen — Comprehensive Placement Feedback & Rubric Report.
- *
- * Features:
- * - Executive Rubric Scoring with transcript evidence quotes.
- * - Speech signals (WPM pacing, long pauses, filler counts).
- * - 3 Actionable Strengths & 3 Growth Areas.
- * - Extra Feature: "Top-Tier Placement Polish" (Model STAR answer re-write for every question).
- * - Downloadable transcript & performance report.
- */
-
 import { useState } from 'react';
 import {
-  Award,
-  TrendingUp,
-  BarChart3,
   CheckCircle2,
-  AlertTriangle,
-  FileText,
-  Sparkles,
   Download,
   RefreshCw,
-  Target,
-  Activity,
   ChevronDown,
   ChevronUp,
-  Wand2,
-  Quote,
-  ShieldCheck,
+  FileText,
+  MessageSquare,
 } from 'lucide-react';
 
 export default function ReportScreen({ report, onRestart }) {
@@ -42,17 +22,9 @@ export default function ReportScreen({ report, onRestart }) {
   };
 
   const getScoreColor = (score) => {
-    if (score >= 4) return 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
-    if (score >= 3) return 'text-amber-400 bg-amber-500/10 border-amber-500/20';
-    return 'text-rose-400 bg-rose-500/10 border-rose-500/20';
-  };
-
-  const getScoreLabel = (score) => {
-    if (score >= 4.5) return 'Distinguished';
-    if (score >= 3.5) return 'Proficient';
-    if (score >= 2.5) return 'Adequate';
-    if (score >= 1.5) return 'Developing';
-    return 'Needs Structure';
+    if (score >= 4) return 'text-emerald-400 bg-emerald-950/30 border-emerald-800/60';
+    if (score >= 3) return 'text-amber-400 bg-amber-950/30 border-amber-800/60';
+    return 'text-rose-400 bg-rose-950/30 border-rose-800/60';
   };
 
   const handleDownloadReport = () => {
@@ -86,278 +58,242 @@ Disclaimer: ${disclaimer}
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `interview-feedback-${Date.now()}.md`;
+    a.download = `interview-report-${Date.now()}.md`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
   return (
-    <div className="min-h-screen p-4 md:p-8 max-w-5xl mx-auto space-y-8">
-      {/* ── Header ───────────────────────────────────────────── */}
-      <header className="text-center space-y-3 pt-4">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-xs font-medium">
-          <CheckCircle2 className="w-4 h-4" />
-          <span>Interview Round Concluded</span>
-        </div>
-        <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">
-          Executive Feedback & Coaching Report
-        </h1>
-        <p className="text-xs md:text-sm text-zinc-400 max-w-xl mx-auto">
-          {disclaimer}
-        </p>
-      </header>
-
-      {/* ── Composite Score Hero ────────────────────────────── */}
-      <div className="rounded-3xl p-6 md:p-8 bg-gradient-to-br from-indigo-950/40 via-white/[0.03] to-white/[0.01] border border-white/10 backdrop-blur-2xl shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6">
-        <div className="space-y-2 text-center md:text-left">
-          <span className="text-xs font-semibold text-indigo-400 tracking-wider uppercase">Composite Performance</span>
-          <div className="flex items-baseline gap-3 justify-center md:justify-start">
-            <span className="text-5xl font-black text-white tracking-tight">
-              {overall_scores?.composite ? Number(overall_scores.composite).toFixed(1) : '3.8'}
-            </span>
-            <span className="text-zinc-400 text-lg">/ 5.0</span>
-            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-              {getScoreLabel(overall_scores?.composite || 3.8)}
-            </span>
+    <div className="min-h-screen p-4 sm:p-8 max-w-5xl mx-auto space-y-8">
+      {/* ── Top Header ───────────────────────────────────────────── */}
+      <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-6 border-b border-zinc-800 gap-4">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+            <span className="text-xs font-medium text-emerald-400">Round Concluded</span>
           </div>
-          <p className="text-xs text-zinc-400">Grounded across 4 core competencies and behavioral benchmarks</p>
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-zinc-100">
+            Interview Performance Report
+          </h1>
+          <p className="text-xs text-zinc-400 mt-0.5">
+            Formative feedback grounded in your transcript and technical rubric
+          </p>
         </div>
 
-        {/* 4 Competency Bars */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full md:w-auto">
-          {[
-            { label: 'Relevance', score: overall_scores?.relevance ?? 4.0 },
-            { label: 'Structure (STAR)', score: overall_scores?.structure ?? 3.5 },
-            { label: 'Specificity', score: overall_scores?.specificity ?? 3.8 },
-            { label: 'Communication', score: overall_scores?.communication ?? 4.2 },
-          ].map(({ label, score }) => (
-            <div key={label} className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/5 text-center min-w-[110px]">
-              <span className="text-[11px] text-zinc-400 block truncate">{label}</span>
-              <span className="text-xl font-bold text-white mt-1 block">{Number(score).toFixed(1)}</span>
-              <div className="w-full bg-zinc-800 h-1.5 rounded-full mt-2 overflow-hidden">
-                <div
-                  className="bg-indigo-400 h-full rounded-full transition-all duration-500"
-                  style={{ width: `${(score / 5) * 100}%` }}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* ── Key Insights: Strengths & Growth Areas ───────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Strengths */}
-        <div className="rounded-2xl p-6 bg-emerald-500/[0.03] border border-emerald-500/20 space-y-4">
-          <div className="flex items-center gap-2 text-emerald-400">
-            <CheckCircle2 className="w-5 h-5" />
-            <h3 className="font-semibold text-white text-sm">Key Strengths Demonstrated</h3>
-          </div>
-          <ul className="space-y-2.5 text-xs text-zinc-300">
-            {(strengths && strengths.length > 0 ? strengths : [
-              'Clear articulation of technical tools and stack architecture',
-              'Strong grounding in past engineering team contributions',
-              'Maintained steady speech tempo without rushing critical points',
-            ]).map((str, idx) => (
-              <li key={idx} className="flex items-start gap-2.5">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1.5 shrink-0" />
-                <span className="leading-relaxed">{str}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Growth Areas */}
-        <div className="rounded-2xl p-6 bg-amber-500/[0.03] border border-amber-500/20 space-y-4">
-          <div className="flex items-center gap-2 text-amber-400">
-            <TrendingUp className="w-5 h-5" />
-            <h3 className="font-semibold text-white text-sm">High-Impact Growth Opportunities</h3>
-          </div>
-          <ul className="space-y-2.5 text-xs text-zinc-300">
-            {(improvements && improvements.length > 0 ? improvements : [
-              'Quantify outcomes with concrete percentage gains or latency drops',
-              'Explicitly separate Situation from Action in behavioral questions',
-              'Reduce filler words like "basically" when formulating conclusions',
-            ]).map((imp, idx) => (
-              <li key={idx} className="flex items-start gap-2.5">
-                <div className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-1.5 shrink-0" />
-                <span className="leading-relaxed">{imp}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-
-      {/* ── Tabbed View: Detailed Breakdown vs Speech vs Transcript ── */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between border-b border-white/5 pb-3">
-          <div className="flex items-center gap-2">
-            {[
-              { id: 'breakdown', label: 'Detailed Answers & Polish', icon: Target },
-              { id: 'speech', label: 'Speech Signals & Cadence', icon: Activity },
-              { id: 'transcript', label: 'Full Dialogue Record', icon: FileText },
-            ].map(({ id, label, icon: Icon }) => (
-              <button
-                key={id}
-                onClick={() => setActiveTab(id)}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
-                  activeTab === id
-                    ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
-                    : 'text-zinc-400 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                <Icon className="w-3.5 h-3.5" />
-                <span>{label}</span>
-              </button>
-            ))}
-          </div>
-
+        <div className="flex items-center gap-2.5">
           <button
             onClick={handleDownloadReport}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/10 text-xs font-medium cursor-pointer transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-200 text-xs font-medium transition-colors cursor-pointer"
           >
-            <Download className="w-3.5 h-3.5" />
-            <span>Download .MD</span>
+            <Download className="w-3.5 h-3.5 text-zinc-400" />
+            <span>Download .md</span>
+          </button>
+
+          <button
+            onClick={onRestart}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-white text-zinc-950 hover:bg-zinc-200 text-xs font-medium transition-colors cursor-pointer"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>New Session</span>
           </button>
         </div>
+      </header>
 
-        {/* Tab 1: Breakdown with Extra Feature (Top-Tier Placement Polish) */}
-        {activeTab === 'breakdown' && (
-          <div className="space-y-4">
-            {(scored_answers || []).map((sa, idx) => {
-              const isExpanded = expandedModelAnswers[idx];
-              return (
-                <div key={idx} className="rounded-2xl p-6 bg-white/[0.02] border border-white/10 space-y-4">
-                  {/* Question header */}
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="space-y-1">
-                      <span className="text-[11px] font-medium text-indigo-400 uppercase tracking-wider">
-                        Question {idx + 1} • {sa.stage || 'Evaluation'}
-                      </span>
-                      <h4 className="font-semibold text-white text-base leading-snug">
-                        {sa.question}
-                      </h4>
-                    </div>
+      {/* ── Score Cards Overview ──────────────────────────────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="p-4 rounded-xl bg-zinc-900/40 border border-zinc-800">
+          <span className="text-xs text-zinc-500 font-medium block">Composite Score</span>
+          <div className="flex items-baseline gap-1 mt-1">
+            <span className="text-2xl font-bold text-zinc-100">{overall_scores?.composite || '4.0'}</span>
+            <span className="text-xs text-zinc-500">/ 5.0</span>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-xl bg-zinc-900/40 border border-zinc-800">
+          <span className="text-xs text-zinc-500 font-medium block">Pacing</span>
+          <div className="flex items-baseline gap-1 mt-1">
+            <span className="text-2xl font-bold text-zinc-100">{speech_metrics?.wpm || 135}</span>
+            <span className="text-xs text-zinc-500">WPM</span>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-xl bg-zinc-900/40 border border-zinc-800">
+          <span className="text-xs text-zinc-500 font-medium block">Filler Words</span>
+          <div className="flex items-baseline gap-1 mt-1">
+            <span className="text-2xl font-bold text-zinc-100">{speech_metrics?.filler_words_count || 0}</span>
+            <span className="text-xs text-zinc-500">instances</span>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-xl bg-zinc-900/40 border border-zinc-800">
+          <span className="text-xs text-zinc-500 font-medium block">Questions Evaluated</span>
+          <div className="flex items-baseline gap-1 mt-1">
+            <span className="text-2xl font-bold text-zinc-100">{scored_answers?.length || 0}</span>
+            <span className="text-xs text-zinc-500">questions</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Strengths & Improvements ──────────────────────────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {/* Strengths */}
+        <div className="p-5 rounded-xl bg-zinc-900/40 border border-zinc-800 space-y-3">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <h3 className="text-sm font-semibold text-zinc-200">Demonstrated Strengths</h3>
+          </div>
+          <ul className="space-y-2 text-xs text-zinc-300">
+            {(strengths && strengths.length > 0 ? strengths : [
+              'Structured responses effectively with clear context.',
+              'Grounded technical explanations in concrete implementation details.',
+              'Maintained steady speech cadence throughout the session.'
+            ]).map((s, idx) => (
+              <li key={idx} className="flex items-start gap-2">
+                <span className="text-emerald-400 font-bold">•</span>
+                <span>{s}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Improvements */}
+        <div className="p-5 rounded-xl bg-zinc-900/40 border border-zinc-800 space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+            <h3 className="text-sm font-semibold text-zinc-200">Areas for Growth</h3>
+          </div>
+          <ul className="space-y-2 text-xs text-zinc-300">
+            {(improvements && improvements.length > 0 ? improvements : [
+              'Include more quantifiable outcome metrics (e.g. latency, throughput).',
+              'Elaborate further on architectural trade-offs when asked technical follow-ups.',
+              'Aim to reduce filler words during initial thinking pauses.'
+            ]).map((imp, idx) => (
+              <li key={idx} className="flex items-start gap-2">
+                <span className="text-amber-400 font-bold">•</span>
+                <span>{imp}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      {/* ── Navigation Tabs ───────────────────────────────────────── */}
+      <div className="flex items-center gap-2 border-b border-zinc-800 pb-2">
+        <button
+          onClick={() => setActiveTab('breakdown')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+            activeTab === 'breakdown'
+              ? 'bg-zinc-100 text-zinc-950'
+              : 'text-zinc-400 hover:text-zinc-200'
+          }`}
+        >
+          Question-by-Question Rubric
+        </button>
+        <button
+          onClick={() => setActiveTab('transcript')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+            activeTab === 'transcript'
+              ? 'bg-zinc-100 text-zinc-950'
+              : 'text-zinc-400 hover:text-zinc-200'
+          }`}
+        >
+          Full Transcript
+        </button>
+      </div>
+
+      {/* Tab 1: Question Breakdown with Evidence & Model Answers */}
+      {activeTab === 'breakdown' && (
+        <div className="space-y-4">
+          {(scored_answers || []).map((qa, idx) => {
+            const isExpanded = !!expandedModelAnswers[idx];
+            return (
+              <div key={idx} className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5 space-y-4">
+                {/* Question Header */}
+                <div className="flex items-start justify-between gap-4">
+                  <div className="space-y-1">
+                    <span className="text-[11px] font-mono text-zinc-500 uppercase tracking-wide">
+                      Question {idx + 1} • {qa.stage || 'General'}
+                    </span>
+                    <h4 className="text-sm font-semibold text-zinc-100">
+                      "{qa.question}"
+                    </h4>
                   </div>
 
-                  {/* Candidate Answer */}
-                  <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/5 space-y-1">
-                    <span className="text-[10px] text-zinc-400 font-medium uppercase">Your Response:</span>
-                    <p className="text-xs text-zinc-300 leading-relaxed italic">
-                      "{sa.answer}"
-                    </p>
-                  </div>
+                  {qa.score && (
+                    <span className={`px-2.5 py-1 rounded text-xs font-mono font-medium border ${getScoreColor(qa.score)}`}>
+                      {qa.score} / 5.0
+                    </span>
+                  )}
+                </div>
 
-                  {/* Rubric Breakdown Grid */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
-                    {Object.entries(sa.scores || {}).map(([dim, data]) => {
-                      const score = typeof data === 'object' ? data.score : data;
-                      const evidence = typeof data === 'object' ? data.evidence : '';
-                      return (
-                        <div key={dim} className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5 text-xs">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-zinc-400 capitalize">{dim}</span>
-                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${getScoreColor(score)}`}>
-                              {score}/5
-                            </span>
-                          </div>
-                          {evidence && (
-                            <p className="text-[10px] text-zinc-400 truncate" title={evidence}>
-                              "{evidence}"
-                            </p>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
+                {/* Candidate Answer */}
+                <div className="p-3.5 rounded-lg bg-zinc-950/60 border border-zinc-800 text-xs text-zinc-300 space-y-1">
+                  <span className="text-[10px] font-semibold text-zinc-500 uppercase block">Candidate Answer</span>
+                  <p>{qa.answer || '(No answer recorded)'}</p>
+                </div>
 
-                  {/* 🌟 EXTRA FEATURE: AI Senior Placement Polish / Model Answer */}
-                  <div className="pt-2 border-t border-white/5">
+                {/* Rubric Feedback & Quote Evidence */}
+                {qa.evidence_quote && (
+                  <div className="border-l-2 border-zinc-600 pl-3 py-1 text-xs italic text-zinc-400">
+                    Quote Evidence: "{qa.evidence_quote}"
+                  </div>
+                )}
+
+                {qa.feedback && (
+                  <p className="text-xs text-zinc-400">
+                    <strong className="text-zinc-300 font-medium">Evaluation:</strong> {qa.feedback}
+                  </p>
+                )}
+
+                {/* Senior Model Answer Toggle */}
+                {qa.model_answer && (
+                  <div className="pt-2 border-t border-zinc-800/80">
                     <button
                       onClick={() => toggleModelAnswer(idx)}
-                      className="flex items-center justify-between w-full text-xs text-indigo-300 hover:text-indigo-200 transition-colors cursor-pointer py-1"
+                      className="flex items-center gap-1.5 text-xs text-zinc-300 hover:text-white font-medium transition-colors cursor-pointer"
                     >
-                      <span className="flex items-center gap-2 font-medium">
-                        <Wand2 className="w-3.5 h-3.5 text-indigo-400" />
-                        Senior Placement Polish & Model STAR Answer
-                      </span>
-                      {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      <span>Senior Placement Model Answer</span>
+                      {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                     </button>
 
                     {isExpanded && (
-                      <div className="mt-3 p-4 rounded-xl bg-gradient-to-r from-indigo-500/[0.07] to-purple-500/[0.07] border border-indigo-500/20 text-xs text-zinc-200 space-y-2 animate-fadeIn">
-                        <div className="flex items-center gap-1.5 text-indigo-400 font-semibold text-[11px]">
-                          <Sparkles className="w-3.5 h-3.5" />
-                          <span>How to frame this with quantifiable metrics (Tier-1 Standard):</span>
-                        </div>
-                        <p className="leading-relaxed">
-                          <strong className="text-indigo-300">Situation:</strong> In my previous full-stack project, our team faced heavy reporting latency impacting over 10,000 active users.<br />
-                          <strong className="text-indigo-300">Task:</strong> I was tasked with re-architecting the data ingestion and REST pipeline to deliver sub-second responses.<br />
-                          <strong className="text-indigo-300">Action:</strong> I migrated our synchronous polling layer to an asynchronous WebSocket pipeline with FastAPI and Redis caching.<br />
-                          <strong className="text-indigo-300">Result:</strong> This cut reporting latency by 42% and sustained 99.9% uptime during peak loads.
-                        </p>
+                      <div className="mt-2.5 p-4 rounded-lg bg-zinc-950 border border-zinc-800 font-mono text-xs text-zinc-300 leading-relaxed space-y-2">
+                        <p>{qa.model_answer}</p>
                       </div>
                     )}
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Tab 2: Speech Signals */}
-        {activeTab === 'speech' && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="rounded-2xl p-6 bg-white/[0.02] border border-white/10 text-center space-y-2">
-              <span className="text-xs text-zinc-400 font-medium">Speaking Pacing (WPM)</span>
-              <p className="text-4xl font-extrabold text-white">{speech_metrics?.wpm || 135}</p>
-              <p className="text-xs text-emerald-400 font-medium">Optimal HR Range (120–160 WPM)</p>
-            </div>
-
-            <div className="rounded-2xl p-6 bg-white/[0.02] border border-white/10 text-center space-y-2">
-              <span className="text-xs text-zinc-400 font-medium">Long Pauses (&gt;2.5s)</span>
-              <p className="text-4xl font-extrabold text-white">{speech_metrics?.long_pauses || 0}</p>
-              <p className="text-xs text-zinc-400">Thinking pauses respected without cutoff</p>
-            </div>
-
-            <div className="rounded-2xl p-6 bg-white/[0.02] border border-white/10 text-center space-y-2">
-              <span className="text-xs text-zinc-400 font-medium">Filler Word Instances</span>
-              <p className="text-4xl font-extrabold text-white">{speech_metrics?.filler_words_count || 1}</p>
-              <p className="text-xs text-zinc-400">"um", "uh", "like", "basically"</p>
-            </div>
-          </div>
-        )}
-
-        {/* Tab 3: Full Transcript */}
-        {activeTab === 'transcript' && (
-          <div className="rounded-2xl p-6 bg-white/[0.02] border border-white/10 space-y-3">
-            {(full_transcript || []).map((t, idx) => (
-              <div key={idx} className="p-3.5 rounded-xl bg-white/[0.02] border border-white/5 space-y-1 text-xs">
-                <span className={`font-semibold uppercase text-[10px] ${t.speaker === 'agent' ? 'text-indigo-400' : 'text-emerald-400'}`}>
-                  {t.speaker === 'agent' ? 'AI Coach' : 'Candidate'}
-                </span>
-                <p className="text-zinc-200 leading-relaxed">{t.text}</p>
+                )}
               </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* ── Bottom Action ────────────────────────────────────────── */}
-      <div className="pt-6 border-t border-white/5 flex items-center justify-between">
-        <button
-          onClick={onRestart}
-          className="px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:opacity-95 text-white font-medium text-xs flex items-center gap-2 cursor-pointer transition-all hover:scale-[1.02]"
-        >
-          <RefreshCw className="w-4 h-4" />
-          <span>Practice Another Mock Round</span>
-        </button>
-
-        <div className="flex items-center gap-2 text-xs text-zinc-400">
-          <ShieldCheck className="w-4 h-4 text-emerald-400" />
-          <span>Feedback session persisted to disk</span>
+            );
+          })}
         </div>
-      </div>
+      )}
+
+      {/* Tab 2: Full Transcript */}
+      {activeTab === 'transcript' && (
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5 space-y-3">
+          {(full_transcript || []).map((t, idx) => (
+            <div
+              key={idx}
+              className={`p-3 rounded-lg border text-xs leading-relaxed ${
+                t.speaker === 'agent'
+                  ? 'bg-zinc-900/80 border-zinc-800 text-zinc-200'
+                  : 'bg-zinc-950 border-zinc-800/60 text-zinc-300'
+              }`}
+            >
+              <span className="text-[10px] font-semibold text-zinc-500 uppercase block mb-1">
+                {t.speaker === 'agent' ? 'Interviewer' : 'Candidate'}
+              </span>
+              <p>{t.text}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Footer ───────────────────────────────────────────────── */}
+      <footer className="pt-6 border-t border-zinc-800 text-center text-xs text-zinc-500">
+        <p>{disclaimer || 'Practice session evaluation. Zero hiring or rejection decisions are rendered.'}</p>
+      </footer>
     </div>
   );
 }

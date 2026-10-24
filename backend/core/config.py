@@ -27,8 +27,8 @@ class Settings:
 
     # ── Models (all free-tier on Groq) ──────────────────────────
     STT_MODEL: str = os.getenv("STT_MODEL", "whisper-large-v3-turbo")
-    TTS_MODEL: str = os.getenv("TTS_MODEL", "playai-tts")
-    TTS_VOICE: str = os.getenv("TTS_VOICE", "Fritz-PlayAI")
+    TTS_MODEL: str = os.getenv("TTS_MODEL", "canopylabs/orpheus-v1-english")
+    TTS_VOICE: str = os.getenv("TTS_VOICE", "autumn")
     LLM_MODEL: str = os.getenv("LLM_MODEL", "llama-3.3-70b-versatile")
 
     # ── ChromaDB (Cloud & Local) ────────────────────────────────

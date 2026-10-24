@@ -11,6 +11,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const WS_URL = `ws://${window.location.hostname}:8000/ws/text`;
 
 // Known filler words for real-time telemetry
@@ -48,6 +49,7 @@ export function useVoice() {
   const speechStartTimeRef = useRef(0);
   const accumulatedCandidateTextRef = useRef('');
   const isAgentSpeakingRef = useRef(false);
+  const currentAudioRef = useRef(null);
   const handsFreeRef = useRef(true);
   const startContinuousListeningRef = useRef(null);
 
@@ -100,9 +102,13 @@ export function useVoice() {
     }
   }, []);
 
-  // ── Browser TTS with instant Barge-in support ──────────────────────
-  const speakText = useCallback((text) => {
-    if (!('speechSynthesis' in window) || !text?.trim()) return;
+  // Fallback to Web Speech API if audio endpoint is offline
+  const fallbackSpeechSynthesis = useCallback((text) => {
+    if (!('speechSynthesis' in window) || !text?.trim()) {
+      isAgentSpeakingRef.current = false;
+      setIsSpeaking(false);
+      return;
+    }
 
     try {
       window.speechSynthesis.cancel();
@@ -110,11 +116,8 @@ export function useVoice() {
         window.speechSynthesis.resume();
       }
     } catch (e) {
-      console.warn('SpeechSynthesis cancel/resume error:', e);
+      console.warn('SpeechSynthesis resume error:', e);
     }
-
-    isAgentSpeakingRef.current = true;
-    setIsSpeaking(true);
 
     const utterance = new SpeechSynthesisUtterance(text.trim());
     utterance.rate = 1.0;
@@ -129,14 +132,12 @@ export function useVoice() {
     utterance.onend = () => {
       isAgentSpeakingRef.current = false;
       setIsSpeaking(false);
-      // When AI finishes speaking, immediately start listening for candidate answer
       if (handsFreeRef.current) {
         startContinuousListeningRef.current?.();
       }
     };
 
-    utterance.onerror = (e) => {
-      console.warn('SpeechSynthesis error:', e);
+    utterance.onerror = () => {
       isAgentSpeakingRef.current = false;
       setIsSpeaking(false);
       if (handsFreeRef.current) {
@@ -144,24 +145,86 @@ export function useVoice() {
       }
     };
 
-    // Small delay ensures Chromium cleans up any previously canceled utterance
     setTimeout(() => {
       try {
-        if (window.speechSynthesis.paused) {
-          window.speechSynthesis.resume();
-        }
         window.speechSynthesis.speak(utterance);
       } catch (err) {
-        console.warn('SpeechSynthesis speak failed:', err);
+        console.warn('Fallback speak failed:', err);
       }
     }, 40);
   }, []);
 
+  // ── High-Fidelity Groq Autumn Voice TTS ──────────────────────────
+  const speakText = useCallback(async (text) => {
+    if (!text?.trim()) return;
+
+    // 1. Cancel any active audio playback
+    if (currentAudioRef.current) {
+      try {
+        currentAudioRef.current.pause();
+        currentAudioRef.current = null;
+      } catch (e) { /* ignore */ }
+    }
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+
+    isAgentSpeakingRef.current = true;
+    setIsSpeaking(true);
+
+    try {
+      // Request Groq Autumn Voice audio stream
+      const res = await fetch(`${API_BASE}/api/tts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: text.trim() }),
+      });
+
+      if (res.ok) {
+        const blob = await res.blob();
+        const audioUrl = URL.createObjectURL(blob);
+        const audio = new Audio(audioUrl);
+        currentAudioRef.current = audio;
+
+        audio.onended = () => {
+          URL.revokeObjectURL(audioUrl);
+          currentAudioRef.current = null;
+          isAgentSpeakingRef.current = false;
+          setIsSpeaking(false);
+          if (handsFreeRef.current) {
+            startContinuousListeningRef.current?.();
+          }
+        };
+
+        audio.onerror = (e) => {
+          console.warn('Groq Autumn audio playback error, falling back:', e);
+          fallbackSpeechSynthesis(text);
+        };
+
+        await audio.play();
+        return;
+      }
+    } catch (e) {
+      console.warn('Failed to stream Groq Autumn voice, falling back:', e);
+    }
+
+    // Fallback if network issue or error
+    fallbackSpeechSynthesis(text);
+  }, [fallbackSpeechSynthesis]);
+
   // ── Cancel Agent Speech (Barge-in / Interruption) ─────────────────
   const interruptAgent = useCallback(() => {
-    if (isAgentSpeakingRef.current || window.speechSynthesis.speaking) {
-      console.log('⚡ Barge-in: Candidate interrupted the AI coach');
+    if (currentAudioRef.current) {
+      try {
+        currentAudioRef.current.pause();
+        currentAudioRef.current = null;
+      } catch (e) { /* ignore */ }
+    }
+    if (window.speechSynthesis?.speaking) {
       window.speechSynthesis.cancel();
+    }
+    if (isAgentSpeakingRef.current) {
+      console.log('⚡ Barge-in: Candidate interrupted Groq Autumn voice');
       isAgentSpeakingRef.current = false;
       setIsSpeaking(false);
     }
@@ -385,6 +448,12 @@ export function useVoice() {
 
   // ── Cleanup ──────────────────────────────────────────────────────
   const disconnect = useCallback(() => {
+    if (currentAudioRef.current) {
+      try {
+        currentAudioRef.current.pause();
+        currentAudioRef.current = null;
+      } catch (e) {}
+    }
     window.speechSynthesis?.cancel();
     clearTimeout(silenceTimerRef.current);
     clearInterval(gapIntervalRef.current);
@@ -412,6 +481,12 @@ export function useVoice() {
 
   const endInterview = useCallback(() => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+    if (currentAudioRef.current) {
+      try {
+        currentAudioRef.current.pause();
+        currentAudioRef.current = null;
+      } catch (e) {}
+    }
     window.speechSynthesis?.cancel();
     setIsProcessing(true);
     wsRef.current.send(JSON.stringify({ type: 'end_interview' }));

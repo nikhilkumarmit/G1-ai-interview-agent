@@ -52,31 +52,53 @@ async def _save_upload_to_temp(upload: UploadFile) -> str:
     return tmp.name
 
 
-def _load_file(path: str) -> List[Document]:
-    """Load a PDF or plain-text file into LangChain Documents with encoding fallbacks."""
+def _load_file_text(path: str) -> str:
+    """Load complete text from a PDF or plain-text file directly without chunking."""
     if path.lower().endswith(".pdf"):
+        # 1. Try PyPDFLoader
         try:
             loader = PyPDFLoader(path)
-            return loader.load()
+            pages = loader.load()
+            text = "\n\n".join(p.page_content.strip() for p in pages if p.page_content.strip())
+            if text:
+                return text
         except Exception:
-            try:
-                import fitz
-                pdf = fitz.open(path)
-                docs = []
-                for i, page in enumerate(pdf):
-                    docs.append(Document(page_content=page.get_text(), metadata={"page": i + 1, "source": path}))
-                return docs
-            except Exception as e:
-                raise RuntimeError(f"Could not parse PDF file: {e}")
+            pass
+
+        # 2. Try PyMuPDF (fitz)
+        try:
+            import fitz
+            pdf = fitz.open(path)
+            parts = [page.get_text().strip() for page in pdf]
+            text = "\n\n".join(p for p in parts if p)
+            if text:
+                return text
+        except Exception:
+            pass
+
+        # 3. Fallback to pypdf
+        try:
+            import pypdf
+            reader = pypdf.PdfReader(path)
+            parts = [page.extract_text() or "" for page in reader.pages]
+            return "\n\n".join(p.strip() for p in parts if p.strip())
+        except Exception as e:
+            raise RuntimeError(f"Could not parse PDF file: {e}")
     else:
         for enc in ("utf-8", "latin-1", "cp1252"):
             try:
-                loader = TextLoader(path, encoding=enc)
-                return loader.load()
+                with open(path, "r", encoding=enc) as f:
+                    return f.read()
             except UnicodeDecodeError:
                 continue
         with open(path, "r", encoding="utf-8", errors="ignore") as f:
-            return [Document(page_content=f.read(), metadata={"source": path})]
+            return f.read()
+
+
+def _load_file(path: str) -> List[Document]:
+    """Load a PDF or plain-text file into LangChain Documents with encoding fallbacks (backward-compat)."""
+    full_text = _load_file_text(path)
+    return [Document(page_content=full_text, metadata={"source": path})]
 
 
 
@@ -209,259 +231,85 @@ def _get_collection():
 
 
 def _store_chunks(chunks: List[Document], source_label: str):
-    """Store chunks into ChromaDB (Cloud or local) with metadata."""
-    collection = _get_collection()
-    ids = []
-    documents = []
-    metadatas = []
-    for i, chunk in enumerate(chunks):
-        chunk_id = f"{source_label}_{i}"
-        ids.append(chunk_id)
-        documents.append(chunk.page_content)
-        meta = {k: str(v) for k, v in chunk.metadata.items()}
-        meta["source"] = source_label
-        meta["chunk_id"] = chunk_id
-        metadatas.append(meta)
-
-    collection.upsert(ids=ids, documents=documents, metadatas=metadatas)
+    """Store chunks into ChromaDB (backward compatibility stub)."""
+    pass
 
 
-
-# ── Summary extraction (Groq LLM + Intelligent Heuristic Fallback) ─
-
-def _rule_based_resume_parser(resume_text: str, jd_text: str) -> Dict[str, Any]:
-    """Fallback parser extracting candidate details directly from text."""
-    lines = [l.strip() for l in resume_text.splitlines() if l.strip()]
-
-    # 1. Candidate Name: First prominent line of resume
-    candidate_name = "Candidate"
-    for line in lines[:8]:
-        if re.search(r"(?i)(resume|curriculum|vitae|page\s*\d|profile|summary|contact|email|phone)", line):
-            continue
-        # Standard human name format
-        clean_name = re.sub(r"[^A-Za-z\s\.\-']", "", line).strip()
-        if 2 <= len(clean_name.split()) <= 4 and len(clean_name) <= 35:
-            candidate_name = clean_name.title()
-            break
-
-    # 2. Comprehensive technical skills catalog
-    COMMON_SKILLS = [
-        "Python", "JavaScript", "TypeScript", "React", "Node.js", "FastAPI",
-        "Django", "Flask", "PostgreSQL", "MySQL", "MongoDB", "Redis", "Docker",
-        "Kubernetes", "AWS", "Azure", "GCP", "Git", "GitHub", "CI/CD", "Linux",
-        "Java", "C++", "C#", "Go", "Rust", "HTML", "CSS", "Tailwind", "Next.js",
-        "GraphQL", "REST API", "Machine Learning", "Deep Learning", "TensorFlow",
-        "PyTorch", "NLP", "Pandas", "NumPy", "Scikit-Learn", "Agile", "Scrum",
-        "Microservices", "Data Structures", "Algorithms", "System Design"
-    ]
-    found_skills = []
-    resume_lower = resume_text.lower()
-    for skill in COMMON_SKILLS:
-        pattern = r"\b" + re.escape(skill.lower()) + r"\b"
-        if re.search(pattern, resume_lower):
-            found_skills.append(skill)
-
-    # 3. Projects Detection
-    projects = []
-    in_projects = False
-    for line in lines:
-        if re.search(r"(?i)^(key\s+|personal\s+|academic\s+)?projects?:?$", line):
-            in_projects = True
-            continue
-        elif in_projects and re.search(r"(?i)^(experience|work|skills|education|certifications?|awards?):?$", line):
-            in_projects = False
-            break
-        elif in_projects and len(line) > 5:
-            clean = re.sub(r"^[\-\*•\d\.\:]+\s*", "", line).strip()
-            if 6 <= len(clean) <= 65 and not clean.endswith(","):
-                projects.append(clean)
-                if len(projects) >= 4:
-                    break
-
-    # 4. Target Role
-    role_match = re.search(
-        r"(?i)(full[\s\-]stack developer|software engineer|frontend developer|backend developer|devops engineer|data scientist|machine learning engineer|data analyst|product manager)",
-        jd_text or resume_text,
-    )
-    target_role = role_match.group(0).title() if role_match else "Software Engineer"
-
-    return {
-        "candidate_name": candidate_name,
-        "skills_found": found_skills if found_skills else ["Python", "FastAPI", "React", "Git"],
-        "project_count": len(projects) if projects else 2,
-        "projects": projects if projects else ["Full-Stack Web Platform", "Real-Time API Pipeline"],
-        "experience_highlights": ["Developed scalable full-stack applications", "Engineered REST APIs with modern frameworks"],
-        "target_role": target_role,
-    }
-
-
-# ── Summary extraction (Groq LLM + Comprehensive Structured Schema) ─
-
-def _rule_based_resume_parser(resume_text: str, jd_text: str) -> Dict[str, Any]:
-    """Fallback parser extracting rich candidate details directly from text."""
-    lines = [l.strip() for l in resume_text.splitlines() if l.strip()]
-
-    # 1. Candidate Name
-    candidate_name = "Candidate"
-    for line in lines[:8]:
-        if re.search(r"(?i)(resume|curriculum|vitae|page\s*\d|profile|summary|contact|email|phone)", line):
-            continue
-        clean_name = re.sub(r"[^A-Za-z\s\.\-']", "", line).strip()
-        if 2 <= len(clean_name.split()) <= 4 and len(clean_name) <= 35:
-            candidate_name = clean_name.title()
-            break
-
-    # 2. Comprehensive technical skills catalog
-    COMMON_SKILLS = [
-        "Python", "JavaScript", "TypeScript", "React", "Node.js", "FastAPI",
-        "Django", "Flask", "PostgreSQL", "MySQL", "MongoDB", "Redis", "Docker",
-        "Kubernetes", "AWS", "Azure", "GCP", "Git", "GitHub", "CI/CD", "Linux",
-        "Java", "C++", "C#", "Go", "Rust", "HTML", "CSS", "Tailwind", "Next.js",
-        "GraphQL", "REST API", "Machine Learning", "Deep Learning", "TensorFlow",
-        "PyTorch", "NLP", "Pandas", "NumPy", "Scikit-Learn", "Agile", "Scrum",
-        "Microservices", "Data Structures", "Algorithms", "System Design"
-    ]
-    found_skills = []
-    resume_lower = resume_text.lower()
-    for skill in COMMON_SKILLS:
-        pattern = r"\b" + re.escape(skill.lower()) + r"\b"
-        if re.search(pattern, resume_lower):
-            found_skills.append(skill)
-
-    # 3. Categorized skills
-    languages = [s for s in found_skills if s in ("Python", "JavaScript", "TypeScript", "Java", "C++", "C#", "Go", "Rust", "HTML", "CSS")]
-    frameworks = [s for s in found_skills if s in ("React", "FastAPI", "Django", "Flask", "Node.js", "Next.js", "Tailwind")]
-    databases = [s for s in found_skills if s in ("PostgreSQL", "MySQL", "MongoDB", "Redis")]
-    cloud_tools = [s for s in found_skills if s in ("Docker", "Kubernetes", "AWS", "Azure", "GCP", "Git", "GitHub", "CI/CD", "Linux")]
-
-    # 4. Projects Detection
-    projects = []
-    in_projects = False
-    for line in lines:
-        if re.search(r"(?i)^(key\s+|personal\s+|academic\s+)?projects?:?$", line):
-            in_projects = True
-            continue
-        elif in_projects and re.search(r"(?i)^(experience|work|skills|education|certifications?|awards?):?$", line):
-            in_projects = False
-            break
-        elif in_projects and len(line) > 5:
-            clean = re.sub(r"^[\-\*•\d\.\:]+\s*", "", line).strip()
-            if 6 <= len(clean) <= 65 and not clean.endswith(","):
-                projects.append({
-                    "name": clean,
-                    "tech_stack": [s for s in found_skills[:3]],
-                    "description": clean,
-                    "metrics_outcome": "Demonstrated full lifecycle implementation",
-                })
-                if len(projects) >= 4:
-                    break
-
-    # 5. Target Role from JD
-    role_match = re.search(
-        r"(?i)(full[\s\-]stack developer|software engineer|frontend developer|backend developer|devops engineer|data scientist|machine learning engineer|data analyst|product manager)",
-        jd_text or resume_text,
-    )
-    target_role = role_match.group(0).title() if role_match else "Software Engineer"
-
-    # 6. JD Matched skills
-    jd_lower = jd_text.lower()
-    matched = [s for s in found_skills if re.search(r"\b" + re.escape(s.lower()) + r"\b", jd_lower)]
-
-    return {
-        "candidate_name": candidate_name,
-        "target_role": target_role,
-        "experience_summary": f"Proficient {target_role} with proven engineering experience in {', '.join(found_skills[:4])}.",
-        "skills_found": found_skills if found_skills else ["Python", "FastAPI", "React", "Git"],
-        "technical_skills": {
-            "languages": languages if languages else ["Python", "JavaScript"],
-            "frameworks": frameworks if frameworks else ["FastAPI", "React"],
-            "databases": databases if databases else ["PostgreSQL"],
-            "cloud_tools": cloud_tools if cloud_tools else ["Docker", "Git"],
-        },
-        "project_count": len(projects) if projects else 2,
-        "projects": projects if projects else [
-            {"name": "Full-Stack Web Platform", "tech_stack": ["React", "FastAPI"], "description": "High-throughput responsive application", "metrics_outcome": "Reduced response latency by 40%"},
-            {"name": "Real-Time API Pipeline", "tech_stack": ["Python", "WebSockets"], "description": "Event-driven asynchronous service", "metrics_outcome": "Handled 10,000+ daily active requests"}
-        ],
-        "work_experience": [
-            {"role": target_role, "company": "Tech Solutions", "duration": "Recent", "highlights": ["Engineered production REST endpoints", "Delivered core team features on schedule"]}
-        ],
-        "education": [
-            {"degree": "Bachelor of Technology in Computer Science", "institution": "University Program", "graduation_year": "Recent"}
-        ],
-        "jd_analysis": {
-            "required_skills": matched if matched else ["Python", "REST APIs"],
-            "matched_skills": matched if matched else found_skills[:3],
-            "growth_areas": ["System scale optimization", "Cloud microservices deployment"]
-        }
-    }
-
+# ── Dynamic Candidate Extraction (100% LLM Driven, Zero Rule-Based Logic) ──
 
 def _extract_summary_via_llm(resume_text: str, jd_text: str) -> Dict[str, Any]:
-    """Extract all details in a rich structured format via Groq LLM with JSON mode."""
+    """
+    Extract all candidate details dynamically from the provided Resume and Job Description.
+    Zero rule-based heuristics or hardcoded skill lists.
+    Extracts whatever domain, role, skills, and projects actually exist in the data.
+    """
     import json
 
     client = Groq(api_key=settings.GROQ_API_KEY)
-    prompt = f"""You are an elite placement recruiter. Analyze the following candidate resume and target job description.
+    prompt = f"""You are an elite placement recruiter and technical hiring expert.
+Analyze the following candidate resume and target job description.
 Extract ALL details into a comprehensive, strictly valid JSON object matching this exact schema:
 
 {{
-  "candidate_name": "Full Name of candidate",
-  "target_role": "Target job title from the JD",
-  "experience_summary": "1-2 sentence executive summary of background and strengths",
-  "skills_found": ["Skill1", "Skill2", "Skill3"],
+  "candidate_name": "Actual candidate name from resume header",
+  "target_role": "Target job title from the JD or candidate desired title",
+  "experience_summary": "1-2 sentence executive summary of candidate's actual background and strengths",
+  "skills_found": ["Skill1", "Skill2", ... all technical and professional skills mentioned in resume],
   "technical_skills": {{
-    "languages": ["Python", "JavaScript", ...],
-    "frameworks": ["FastAPI", "React", ...],
-    "databases": ["PostgreSQL", ...],
-    "cloud_tools": ["Docker", "AWS", "Git", ...]
+    "languages": ["Languages found in resume"],
+    "frameworks": ["Frameworks and libraries found in resume"],
+    "databases": ["Databases and storage tools found in resume"],
+    "cloud_tools": ["Cloud platforms, DevOps, and developer tools found in resume"]
   }},
   "project_count": 2,
   "projects": [
     {{
-      "name": "Project Name",
-      "tech_stack": ["React", "FastAPI"],
-      "description": "What this project does",
-      "metrics_outcome": "Quantified result if any (e.g. 40% latency reduction or 10k users)"
+      "name": "Actual Project Name from resume",
+      "tech_stack": ["Technologies used in this project"],
+      "description": "Clear description of what this project does and problems solved",
+      "metrics_outcome": "Quantified result or impact from resume if mentioned"
     }}
   ],
   "work_experience": [
     {{
-      "role": "Software Developer",
+      "role": "Job Title from resume",
       "company": "Company Name",
-      "duration": "Duration or Dates",
-      "highlights": ["Key achievement 1", "Key achievement 2"]
+      "duration": "Duration or Dates from resume",
+      "highlights": ["Key accomplishment or responsibility 1", "Key accomplishment 2"]
     }}
   ],
   "education": [
     {{
-      "degree": "Degree Title",
-      "institution": "University or College",
-      "graduation_year": "Graduation Year"
+      "degree": "Degree Title from resume",
+      "institution": "University / College name",
+      "graduation_year": "Graduation year or dates"
     }}
   ],
   "jd_analysis": {{
-    "required_skills": ["Skill1 from JD", "Skill2 from JD"],
-    "matched_skills": ["Resume skill that directly matches JD"],
-    "growth_areas": ["Key area candidate can elaborate transferrable knowledge on"]
+    "required_skills": ["Key skills explicitly required in the target Job Description"],
+    "matched_skills": ["Candidate skills that directly match the Job Description requirements"],
+    "growth_areas": ["Key requirements in the JD that the candidate can demonstrate transferrable knowledge for"]
   }}
 }}
 
-RULES:
-1. Extract the actual name of the candidate from the resume header. Do not write 'Unknown' or 'Candidate'.
-2. Return ONLY a valid JSON object. Do not include markdown code fences, think tags, or preamble.
+STRICT RULES:
+1. Base EVERYTHING STRICTLY on the provided RESUME and JOB DESCRIPTION. Do NOT invent experiences or skills.
+2. If a section is not mentioned in the resume (e.g. no projects or no education), return an empty list [], do not make up fake data.
+3. Extract the candidate's actual name from the resume. Do NOT output 'Candidate' or 'Unknown' if a name exists.
+4. Output ONLY the raw JSON object. Do not include markdown code fences, think tags, or conversational preamble.
 
-RESUME:
-{resume_text[:4000]}
+RESUME (FULL DOCUMENT):
+{resume_text[:30000]}
 
-JOB DESCRIPTION:
-{jd_text[:2500]}
+JOB DESCRIPTION (FULL DOCUMENT):
+{jd_text[:20000]}
 """
 
     models_to_try = [
         settings.LLM_MODEL,
-        "llama-3.3-70b-versatile",
-        "llama-3.1-8b-instant",
+        "openai/gpt-oss-120b",
+        "openai/gpt-oss-20b",
+        "qwen/qwen3.8-27b",
     ]
     seen = set()
     models = [m for m in models_to_try if m and not (m in seen or seen.add(m))]
@@ -473,20 +321,19 @@ JOB DESCRIPTION:
                 model=model_name,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.1,
-                max_tokens=1000,
+                max_tokens=2000,
                 response_format={"type": "json_object"},
             )
             raw = response.choices[0].message.content.strip()
             if raw:
                 break
-        except Exception as e:
-            # Fallback without response_format if model doesn't support it
+        except Exception:
             try:
                 response = client.chat.completions.create(
                     model=model_name,
                     messages=[{"role": "user", "content": prompt}],
                     temperature=0.1,
-                    max_tokens=1000,
+                    max_tokens=2000,
                 )
                 raw = response.choices[0].message.content.strip()
                 if raw:
@@ -513,63 +360,87 @@ JOB DESCRIPTION:
 
     try:
         data = json.loads(raw)
-        fallback = _rule_based_resume_parser(resume_text, jd_text)
-        # Validate critical fields
-        if not data.get("candidate_name") or data.get("candidate_name").lower() in ("unknown", "...", "n/a", "full name", "candidate"):
-            data["candidate_name"] = fallback["candidate_name"]
-        if not data.get("skills_found"):
-            data["skills_found"] = fallback["skills_found"]
-        if not data.get("technical_skills"):
-            data["technical_skills"] = fallback["technical_skills"]
-        if not data.get("projects"):
-            data["projects"] = fallback["projects"]
-            data["project_count"] = len(fallback["projects"])
-        if not data.get("target_role") or data.get("target_role").lower() in ("unknown", "...", "target job title"):
-            data["target_role"] = fallback["target_role"]
-        if not data.get("experience_summary"):
-            data["experience_summary"] = fallback["experience_summary"]
-        if not data.get("jd_analysis"):
-            data["jd_analysis"] = fallback["jd_analysis"]
-        return data
     except Exception as e:
-        print(f"  ⚠️ JSON parse error on structured summary: {e}. Utilizing rule-based fallback parser.")
-        return _rule_based_resume_parser(resume_text, jd_text)
+        print(f"  ⚠️ Direct JSON parse error: {e}. Attempting dynamic JSON repair...")
+        # Dynamic LLM JSON repair — zero hardcoded fake defaults
+        try:
+            repair_resp = client.chat.completions.create(
+                model="openai/gpt-oss-120b",
+                messages=[
+                    {"role": "system", "content": "You are a JSON repair tool. Return ONLY valid JSON matching the user's data structure."},
+                    {"role": "user", "content": f"Fix this malformed JSON and return valid JSON only:\n{raw[:3000]}"}
+                ],
+                temperature=0.0,
+                max_tokens=2000,
+                response_format={"type": "json_object"},
+            )
+            repaired_raw = repair_resp.choices[0].message.content.strip()
+            repaired_raw = re.sub(r"<think>.*?</think>", "", repaired_raw, flags=re.DOTALL).strip()
+            m = re.search(r"(\{.*\})", repaired_raw, re.DOTALL)
+            data = json.loads(m.group(1) if m else repaired_raw)
+        except Exception as e2:
+            print(f"  ⚠️ Repair failed ({e2}). Constructing clean context container from data.")
+            data = {}
+
+    # Ensure well-formed dictionary strictly derived from data (zero hardcoded mock skills)
+    candidate_name = data.get("candidate_name") or ""
+    if not candidate_name or candidate_name.lower() in ("unknown", "...", "n/a", "full name of candidate"):
+        # Extract first non-empty line as candidate name from the actual resume text
+        first_lines = [l.strip() for l in resume_text.splitlines() if l.strip()]
+        candidate_name = first_lines[0] if first_lines else "Candidate"
+
+    target_role = data.get("target_role") or "Target Role"
+    skills_found = data.get("skills_found") or []
+    projects = data.get("projects") or []
+    project_count = data.get("project_count") or len(projects)
+
+    return {
+        "candidate_name": candidate_name,
+        "target_role": target_role,
+        "experience_summary": data.get("experience_summary") or f"Candidate practicing for {target_role}.",
+        "skills_found": skills_found,
+        "technical_skills": data.get("technical_skills") or {
+            "languages": [], "frameworks": [], "databases": [], "cloud_tools": []
+        },
+        "project_count": project_count,
+        "projects": projects,
+        "work_experience": data.get("work_experience") or [],
+        "education": data.get("education") or [],
+        "jd_analysis": data.get("jd_analysis") or {
+            "required_skills": [], "matched_skills": skills_found[:4], "growth_areas": []
+        }
+    }
 
 
 
-# ── Public API ──────────────────────────────────────────────────
+# ── Public API (Direct Document Processing, Zero Chunking / Embedding) ─
 
 async def ingest_resume_and_jd(
     resume: UploadFile, job_desc: UploadFile
 ) -> Dict[str, Any]:
     """
-    Full ingestion pipeline:
-    1. Save uploads to temp files
-    2. Load → chunk → classify sections → store in ChromaDB
-    3. Extract structured summary via Groq LLM
-    4. Return summary dict
+    Direct Document Ingestion Pipeline:
+    1. Read complete unchunked resume and JD text directly into memory.
+    2. Zero chunking and zero vector embedding overhead.
+    3. Pass entire documents directly to Groq LLM (128k context window).
+    4. Extract rich structured candidate profile and return with full document texts.
     """
     resume_path = await _save_upload_to_temp(resume)
     jd_path = await _save_upload_to_temp(job_desc)
 
     try:
-        # Load documents
-        resume_docs = _load_file(resume_path)
-        jd_docs = _load_file(jd_path)
+        # Load complete, unchunked text directly
+        resume_text = _load_file_text(resume_path)
+        jd_text = _load_file_text(jd_path)
 
-        # Chunk and store
-        resume_chunks = _chunk_documents(resume_docs)
-        jd_chunks = _chunk_documents(jd_docs)
-        _store_chunks(resume_chunks, "resume")
-        _store_chunks(jd_chunks, "job_desc")
-
-        # Full text for summary
-        resume_text = "\n".join(d.page_content for d in resume_docs)
-        jd_text = "\n".join(d.page_content for d in jd_docs)
-
+        # Directly extract structured summary via Groq LLM
         summary = _extract_summary_via_llm(resume_text, jd_text)
-        summary["resume_chunk_count"] = len(resume_chunks)
-        summary["jd_chunk_count"] = len(jd_chunks)
+
+        # Store complete texts directly in the summary payload
+        summary["resume_text"] = resume_text
+        summary["jd_text"] = jd_text
+        summary["resume_chunk_count"] = 1
+        summary["jd_chunk_count"] = 1
 
         print(f"\n{'='*65}")
         print(f"  CANDIDATE STRUCTURED PROFILE")

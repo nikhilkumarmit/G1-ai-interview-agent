@@ -49,7 +49,7 @@ const App = () => {
   }, []);
 
   return (
-    <>
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-zinc-800 selection:text-zinc-100">
       {screen === SCREENS.UPLOAD && (
         <UploadScreen onComplete={handleUploadComplete} />
       )}
@@ -59,7 +59,7 @@ const App = () => {
       {screen === SCREENS.REPORT && (
         <ReportScreen report={report} onRestart={handleRestart} />
       )}
-    </>
+    </div>
   );
 };
 

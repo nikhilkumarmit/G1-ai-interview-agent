@@ -76,6 +76,8 @@ class InterviewState:
     transcript: List[Dict] = field(default_factory=list)
     notes: List[str] = field(default_factory=list)
     candidate_summary: Dict = field(default_factory=dict)
+    resume_text: str = ""
+    jd_text: str = ""
     asked_question_texts: List[str] = field(default_factory=list)  # dedup
     is_finished: bool = False
     session_id: str = ""
@@ -117,12 +119,19 @@ class InterviewManager:
 
     # ── Session lifecycle ───────────────────────────────────────
 
-    def start(self, candidate_summary: Dict = None) -> Dict:
+    def start(
+        self,
+        candidate_summary: Dict = None,
+        resume_text: str = "",
+        jd_text: str = "",
+    ) -> Dict:
         """Start a new interview session."""
         self.state = InterviewState()
         self.state.time_started = time.time()
         self.state.session_id = f"session_{int(time.time())}"
         self.state.candidate_summary = candidate_summary or {}
+        self.state.resume_text = resume_text or (candidate_summary.get("resume_text", "") if candidate_summary else "")
+        self.state.jd_text = jd_text or (candidate_summary.get("jd_text", "") if candidate_summary else "")
         self.state.stage = Stage.INTRO.value
 
         # Safety disclosure — mandated opening line
@@ -263,6 +272,8 @@ class InterviewManager:
             "questions_remaining": self.state.questions_remaining(),
             "transcript": self.state.transcript,
             "candidate_summary": self.state.candidate_summary,
+            "resume_text": self.state.resume_text,
+            "jd_text": self.state.jd_text,
             "is_finished": self.state.is_finished,
             "session_id": self.state.session_id,
         }
@@ -279,10 +290,17 @@ class InterviewManager:
         except Exception as e:
             print(f"[WARN] Failed to persist state: {e}")
 
-    def reset_session(self, candidate_summary: Dict = None):
+    def reset_session(
+        self,
+        candidate_summary: Dict = None,
+        resume_text: str = "",
+        jd_text: str = "",
+    ):
         """Completely reset the session and remove old persisted state files."""
         self.state = InterviewState()
         self.state.candidate_summary = candidate_summary or {}
+        self.state.resume_text = resume_text or (candidate_summary.get("resume_text", "") if candidate_summary else "")
+        self.state.jd_text = jd_text or (candidate_summary.get("jd_text", "") if candidate_summary else "")
         try:
             if os.path.exists(settings.SESSION_FILE):
                 os.remove(settings.SESSION_FILE)
@@ -311,6 +329,12 @@ class InterviewManager:
             self.state.time_started = data.get("time_started", time.time())
             self.state.transcript = data.get("transcript", [])
             self.state.candidate_summary = data.get("candidate_summary", {})
+            self.state.resume_text = data.get("resume_text", "")
+            self.state.jd_text = data.get("jd_text", "")
+            if not self.state.resume_text and self.state.candidate_summary:
+                self.state.resume_text = self.state.candidate_summary.get("resume_text", "")
+            if not self.state.jd_text and self.state.candidate_summary:
+                self.state.jd_text = self.state.candidate_summary.get("jd_text", "")
             self.state.is_finished = data.get("is_finished", False)
             self.state.session_id = data.get("session_id", "")
             self.state.asked_question_texts = [

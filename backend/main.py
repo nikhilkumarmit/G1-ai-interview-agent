@@ -16,7 +16,7 @@ import uvicorn
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile, WebSocket
 
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 
 from backend.core.config import settings
 from backend.services.ingestion import ingest_resume_and_jd, query_chunks
@@ -73,8 +73,14 @@ async def ingest_files(
     """Ingest resume + JD → chunk → embed → store in ChromaDB → return summary."""
     try:
         summary = await ingest_resume_and_jd(resume, job_desc)
-        # Reset interview manager for the new candidate and purge stale session
-        interview_manager.reset_session(candidate_summary=summary)
+        resume_text = summary.get("resume_text", "")
+        jd_text = summary.get("jd_text", "")
+        # Reset interview manager for the new candidate and store full documents
+        interview_manager.reset_session(
+            candidate_summary=summary,
+            resume_text=resume_text,
+            jd_text=jd_text,
+        )
         return JSONResponse(content={"status": "ok", "summary": summary})
     except Exception as e:
         import traceback
@@ -97,8 +103,17 @@ async def start_interview(request: Request = None):
 
     if not candidate_summary:
         candidate_summary = interview_manager.state.candidate_summary
+        resume_text = interview_manager.state.resume_text
+        jd_text = interview_manager.state.jd_text
+    else:
+        resume_text = candidate_summary.get("resume_text", "") or interview_manager.state.resume_text
+        jd_text = candidate_summary.get("jd_text", "") or interview_manager.state.jd_text
 
-    payload = interview_manager.start(candidate_summary=candidate_summary)
+    payload = interview_manager.start(
+        candidate_summary=candidate_summary,
+        resume_text=resume_text,
+        jd_text=jd_text,
+    )
     return JSONResponse(content={"status": "started", **payload})
 
 
@@ -116,6 +131,8 @@ async def next_question():
         candidate_summary=state["candidate_summary"],
         asked_questions=interview_manager.state.asked_question_texts,
         transcript=state["transcript"],
+        resume_text=state.get("resume_text", ""),
+        jd_text=state.get("jd_text", ""),
     )
     payload = interview_manager.set_next_question(question)
     return JSONResponse(content={"status": "ok", **payload})
@@ -195,6 +212,30 @@ async def get_report():
         questions_asked=interview_manager.state.questions_asked,
     )
     return JSONResponse(content={"status": "ok", "report": report})
+
+
+@app.post("/api/tts")
+async def generate_tts(request: Request):
+    """Generate audio for text using Groq's high-speed Autumn voice."""
+    body = await request.json()
+    text = body.get("text", "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Text required")
+
+    try:
+        from groq import Groq
+        client = Groq(api_key=settings.GROQ_API_KEY)
+        response = client.audio.speech.create(
+            model=settings.TTS_MODEL,
+            voice=settings.TTS_VOICE,
+            input=text,
+            response_format="wav",
+        )
+        audio_bytes = response.read()
+        return Response(content=audio_bytes, media_type="audio/wav")
+    except Exception as e:
+        print(f"  ❌ Groq TTS error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -277,6 +318,8 @@ async def text_pipeline_ws(websocket: WebSocket):
                             candidate_summary=full_state["candidate_summary"],
                             asked_questions=interview_manager.state.asked_question_texts,
                             transcript=full_state["transcript"],
+                            resume_text=full_state.get("resume_text", ""),
+                            jd_text=full_state.get("jd_text", ""),
                         )
                         next_payload = interview_manager.set_next_question(question)
                         await websocket.send_json({

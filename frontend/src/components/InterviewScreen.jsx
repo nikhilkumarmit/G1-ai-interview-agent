@@ -1,35 +1,14 @@
-/**
- * InterviewScreen — Continuous Hands-Free Conversational Voice UI.
- *
- * Key Capabilities:
- * - Hands-Free Voice Agent: Listens automatically, detects natural speech pauses (1.5s VAD tolerance).
- * - Instant Barge-In: AI voice cuts off the instant candidate speaks.
- * - Reactive Soundwaves: Live frequency canvas reacting to speech.
- * - Live Coaching Telemetry HUD: Real-time STAR detection, WPM pacing gauge, and filler tracker.
- * - Grounding Context: Highlights resume projects and JD requirements linked to current question.
- */
-
 import { useState, useRef, useEffect } from 'react';
 import {
-  Mic,
-  MicOff,
   Volume2,
   VolumeX,
   Radio,
   Clock,
-  Sparkles,
-  Zap,
   Target,
-  Brain,
   CheckCircle2,
-  AlertCircle,
-  Activity,
   Send,
-  Square,
-  ShieldCheck,
-  ChevronRight,
-  TrendingUp,
   MessageSquare,
+  Activity,
 } from 'lucide-react';
 import { useVoice } from '../hooks/useVoice';
 import VoiceVisualizer from './VoiceVisualizer';
@@ -55,26 +34,25 @@ export default function InterviewScreen({ onEnd }) {
     sendAnswer,
     endInterview,
     interruptAgent,
-    startContinuousListening,
     replayQuestion,
   } = useVoice();
 
   const [textInput, setTextInput] = useState('');
-  const [showTextFallback, setShowTextFallback] = useState(false);
+  const [showTextInput, setShowTextInput] = useState(false);
   const transcriptEndRef = useRef(null);
 
-  // Auto-connect on mount
+  // Connect on mount
   useEffect(() => {
     connect();
     return () => disconnect();
   }, [connect, disconnect]);
 
-  // Auto-scroll transcript container
+  // Scroll transcript
   useEffect(() => {
     transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [transcript, interimText]);
 
-  // Transition to report if finished
+  // Transition to report when done
   useEffect(() => {
     if (interviewState?.is_finished && interviewState?.report) {
       onEnd(interviewState.report);
@@ -90,7 +68,7 @@ export default function InterviewScreen({ onEnd }) {
   };
 
   const handleEndInterview = () => {
-    if (window.confirm('Finish the interview round and view your detailed placement report?')) {
+    if (window.confirm('End this interview practice round and view your evaluation report?')) {
       endInterview();
     }
   };
@@ -103,9 +81,9 @@ export default function InterviewScreen({ onEnd }) {
   };
 
   const stageDisplayNames = {
-    intro: '1. Introduction',
-    resume_questions: '2. Resume Grounding',
-    behavioural: '3. Behavioral (STAR)',
+    intro: '1. Intro',
+    resume_questions: '2. Resume',
+    behavioural: '3. Behavioral',
     role_questions: '4. Role Alignment',
     candidate_questions: '5. Candidate Q&A',
     closing: '6. Wrap-Up',
@@ -116,9 +94,9 @@ export default function InterviewScreen({ onEnd }) {
   const currentStageIdx = stagesList.indexOf(currentStage);
 
   return (
-    <div className="min-h-screen flex flex-col justify-between p-4 md:p-8 max-w-6xl mx-auto space-y-6">
+    <div className="min-h-screen flex flex-col justify-between p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto gap-6">
       {/* ── Top Bar: Stage Stepper & Session Stats ────────────────── */}
-      <header className="rounded-2xl p-4 bg-white/[0.03] border border-white/10 backdrop-blur-xl flex flex-col md:flex-row items-center justify-between gap-4 shadow-xl">
+      <header className="rounded-xl p-3 sm:p-4 bg-zinc-900/60 border border-zinc-800 flex flex-col md:flex-row items-center justify-between gap-4">
         {/* Stage Badges */}
         <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 scrollbar-none">
           {stagesList.map((stg, idx) => {
@@ -127,101 +105,89 @@ export default function InterviewScreen({ onEnd }) {
             return (
               <div
                 key={stg}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all ${
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium whitespace-nowrap transition-colors ${
                   isActive
-                    ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 shadow-sm shadow-indigo-500/20'
+                    ? 'bg-zinc-100 text-zinc-950'
                     : isDone
-                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                    : 'text-zinc-400 bg-white/[0.02] border border-white/5'
+                    ? 'bg-zinc-800/80 text-emerald-400 border border-emerald-900/40'
+                    : 'text-zinc-500 bg-zinc-900/50 border border-zinc-800/50'
                 }`}
               >
-                {isDone ? <CheckCircle2 className="w-3.5 h-3.5" /> : idx === currentStageIdx ? <div className="w-2 h-2 rounded-full bg-indigo-400 animate-ping" /> : null}
+                {isDone ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> : null}
                 <span>{stageDisplayNames[stg]}</span>
               </div>
             );
           })}
         </div>
 
-        {/* Right Info: Timer & Budget */}
-        <div className="flex items-center gap-4 text-xs shrink-0">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-zinc-300 font-mono">
-            <Clock className="w-3.5 h-3.5 text-indigo-400" />
+        {/* Right Info: Timer & Controls */}
+        <div className="flex items-center gap-3 text-xs shrink-0">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-zinc-900 border border-zinc-800 text-zinc-300 font-mono">
+            <Clock className="w-3.5 h-3.5 text-zinc-400" />
             <span>{formatTime(interviewState?.time_remaining)}</span>
           </div>
 
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-zinc-300">
-            <Target className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Budget: <strong className="text-white">{interviewState?.questions_remaining ?? 12}</strong> left</span>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-zinc-900 border border-zinc-800 text-zinc-300">
+            <Target className="w-3.5 h-3.5 text-zinc-400" />
+            <span>Budget: <strong className="text-zinc-100 font-medium">{interviewState?.questions_remaining ?? 12}</strong> left</span>
           </div>
-
-          {latency > 0 && (
-            <div className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/5 border border-white/10 text-[11px] text-zinc-400">
-              <Zap className="w-3 h-3 text-amber-400" />
-              <span>{latency}ms turn</span>
-            </div>
-          )}
 
           <button
             onClick={handleEndInterview}
-            className="px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-medium cursor-pointer transition-colors"
+            className="px-3 py-1 rounded bg-rose-950/20 hover:bg-rose-950/40 text-rose-300 border border-rose-900/50 text-xs font-medium cursor-pointer transition-colors"
           >
-            Wrap Up
+            Finish Round
           </button>
         </div>
       </header>
 
-      {/* ── Main Voice Centerpiece ──────────────────────────────── */}
+      {/* ── Main Voice Stage ─────────────────────────────────────── */}
       <main className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 items-start">
         {/* Left Column: Live Audio Coach Stage & Active Question */}
-        <div className="lg:col-span-7 flex flex-col space-y-5">
+        <div className="lg:col-span-7 flex flex-col gap-5">
           {/* Active AI Question Card */}
-          <div className="relative rounded-3xl p-6 md:p-8 bg-gradient-to-b from-white/[0.05] to-white/[0.02] border border-white/15 backdrop-blur-2xl shadow-2xl space-y-6">
+          <div className="rounded-xl p-6 sm:p-8 bg-zinc-900/40 border border-zinc-800 flex flex-col gap-6">
             {/* Status Header */}
             <div className="flex items-center justify-between text-xs">
               <div className="flex items-center gap-2">
-                <span className="flex h-2.5 w-2.5 relative">
-                  <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
-                    isSpeaking ? 'bg-indigo-400' : isListening ? 'bg-emerald-400' : 'bg-zinc-400'
-                  }`} />
-                  <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${
-                    isSpeaking ? 'bg-indigo-500' : isListening ? 'bg-emerald-500' : 'bg-zinc-500'
-                  }`} />
-                </span>
+                <span className={`w-2 h-2 rounded-full ${
+                  isSpeaking ? 'bg-blue-400 animate-pulse' : isListening ? 'bg-emerald-400' : 'bg-zinc-500'
+                }`} />
 
-                <span className="font-medium text-white tracking-wide uppercase text-[11px]">
+                <span className="font-medium text-zinc-300 text-xs">
                   {isSpeaking
-                    ? 'AI Coach Speaking (Speak to Interrupt)'
+                    ? 'AI Coach Speaking'
                     : isProcessing
                     ? 'Evaluating Response...'
                     : isListening
-                    ? 'Listening Hands-Free (Speak naturally)'
+                    ? 'Listening (Hands-Free)'
                     : 'Standing By'}
                 </span>
               </div>
 
-              {/* Hands-Free Toggle Badge */}
+              {/* Hands-Free Toggle */}
               <button
                 onClick={() => setHandsFree(!handsFree)}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors cursor-pointer ${
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium border transition-colors cursor-pointer ${
                   handsFree
-                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                    : 'bg-zinc-800 text-zinc-400 border-white/10'
+                    ? 'bg-zinc-800 text-zinc-200 border-zinc-700'
+                    : 'bg-zinc-900 text-zinc-400 border-zinc-800'
                 }`}
               >
                 <Radio className="w-3 h-3" />
-                <span>{handsFree ? 'Auto-Listen: ON' : 'Manual Push: ON'}</span>
+                <span>{handsFree ? 'Auto-Listen: ON' : 'Manual Push'}</span>
               </button>
             </div>
 
             {/* Current Question Text */}
-            <div className="min-h-[90px] flex items-center">
-              <p className="text-xl md:text-2xl font-semibold text-white tracking-tight leading-relaxed">
+            <div className="min-h-[80px] flex items-center">
+              <p className="text-xl sm:text-2xl font-medium text-zinc-100 tracking-tight leading-relaxed">
                 "{interviewState?.current_question || agentMessage || 'Connecting to interview agent...'}"
               </p>
             </div>
 
-            {/* Real-time Reactive Soundwave Canvas */}
-            <div className="pt-2 border-t border-white/5 flex flex-col items-center">
+            {/* Visualizer & Controls */}
+            <div className="pt-2 border-t border-zinc-800/80 flex flex-col items-center">
               <VoiceVisualizer
                 audioLevel={audioLevel}
                 isSpeaking={isSpeaking}
@@ -229,206 +195,146 @@ export default function InterviewScreen({ onEnd }) {
                 isProcessing={isProcessing}
               />
 
-              {/* Live Status Subtitle */}
+              {/* Status Bar Buttons */}
               <div className="flex items-center gap-3 text-xs text-zinc-400 mt-1">
                 {isSpeaking ? (
                   <button
                     onClick={interruptAgent}
-                    className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 cursor-pointer"
+                    className="flex items-center gap-1.5 px-3 py-1 rounded bg-rose-950/20 hover:bg-rose-950/40 border border-rose-900/40 text-rose-300 cursor-pointer transition-colors"
                   >
-                    <VolumeX className="w-3.5 h-3.5 text-rose-400" />
-                    <span>Click or speak to interrupt</span>
+                    <VolumeX className="w-3.5 h-3.5" />
+                    <span>Interrupt Coach</span>
                   </button>
                 ) : (
-                  <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-2.5">
                     <button
                       onClick={replayQuestion}
                       title="Replay coach question voice"
-                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white transition-colors cursor-pointer text-[11px]"
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 border border-zinc-700/80 text-zinc-200 transition-colors cursor-pointer text-xs"
                     >
-                      <Volume2 className="w-3.5 h-3.5 text-indigo-400" />
-                      <span>Replay Question Voice</span>
+                      <Volume2 className="w-3.5 h-3.5 text-zinc-400" />
+                      <span>Replay Question</span>
                     </button>
                     {isListening && (
-                      <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                        <span>Hands-free active • 1.5s gap commit</span>
-                      </div>
+                      <span className="text-zinc-500 text-xs">
+                        1.5s silence gap detection active
+                      </span>
                     )}
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Silence Gap Countdown Indicator (Thinking Pause) */}
+            {/* Silence Gap Countdown Indicator */}
             {gapTimeRemaining > 0 && (
-              <div className="flex items-center justify-center gap-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-300 text-xs animate-pulse">
-                <Clock className="w-4 h-4" />
-                <span>Pause detected: finalizing answer in <strong>{(gapTimeRemaining / 1000).toFixed(1)}s</strong> (keep speaking to continue)</span>
+              <div className="flex items-center justify-center gap-2 p-2 rounded bg-amber-950/20 border border-amber-900/40 text-amber-300 text-xs">
+                <Clock className="w-3.5 h-3.5" />
+                <span>Pause detected — finalizing in <strong>{(gapTimeRemaining / 1000).toFixed(1)}s</strong></span>
               </div>
             )}
           </div>
 
           {/* Real-Time Candidate Interim Transcription Bubble */}
           {interimText && (
-            <div className="rounded-2xl p-5 bg-emerald-500/[0.04] border border-emerald-500/25 backdrop-blur-xl space-y-2 animate-fadeIn">
-              <div className="flex items-center justify-between text-xs text-emerald-400">
-                <span className="flex items-center gap-1.5 font-medium">
-                  <Mic className="w-3.5 h-3.5" />
-                  Live Speech Input
-                </span>
-                <span className="text-zinc-400 text-[11px]">Auto-submits after 1.5s pause</span>
-              </div>
-              <p className="text-sm md:text-base text-zinc-200 italic leading-relaxed">
-                "{interimText}"
-              </p>
+            <div className="p-4 rounded-xl bg-zinc-900/60 border border-zinc-800 space-y-1.5">
+              <span className="text-[11px] font-medium text-emerald-400 block">Candidate Speech (Live)</span>
+              <p className="text-sm text-zinc-200 leading-relaxed font-normal">{interimText}</p>
             </div>
           )}
 
-          {/* Manual Input Toggle / Fallback */}
-          <div className="flex items-center justify-between text-xs px-2">
-            <button
-              onClick={() => setShowTextFallback(!showTextFallback)}
-              className="text-zinc-400 hover:text-indigo-400 transition-colors flex items-center gap-1.5 cursor-pointer"
-            >
-              <MessageSquare className="w-3.5 h-3.5" />
-              <span>{showTextFallback ? 'Hide text input' : 'Type answer instead'}</span>
-            </button>
-
-            <span className="text-zinc-400">Voice agent auto-manages turn taking</span>
-          </div>
-
-          {showTextFallback && (
-            <form onSubmit={handleManualSubmit} className="flex gap-2">
-              <input
-                type="text"
-                value={textInput}
-                onChange={(e) => setTextInput(e.target.value)}
-                placeholder="Type your interview response..."
-                disabled={isProcessing}
-                className="flex-1 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-zinc-400 text-sm focus:outline-none focus:border-indigo-500/50"
-              />
-              <button
-                type="submit"
-                disabled={!textInput.trim() || isProcessing}
-                className="px-5 py-3 rounded-xl bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50 text-white font-medium text-xs flex items-center gap-2 cursor-pointer"
-              >
-                <span>Send</span>
-                <Send className="w-3.5 h-3.5" />
-              </button>
-            </form>
-          )}
-        </div>
-
-        {/* Right Column: Live Telemetry HUD & Live Transcript */}
-        <div className="lg:col-span-5 flex flex-col space-y-5">
-          {/* 🌟 EXTRA FEATURE: Real-time Live Coaching Telemetry HUD */}
-          <div className="rounded-2xl p-5 bg-white/[0.03] border border-white/10 backdrop-blur-xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-white/5">
-              <h3 className="text-xs font-semibold text-white tracking-wide uppercase flex items-center gap-2">
-                <Activity className="w-4 h-4 text-indigo-400" />
-                Live Answer Telemetry HUD
-              </h3>
-              <span className="text-[10px] text-zinc-400 px-2 py-0.5 rounded-full bg-white/5">Active Round</span>
+          {/* Live Coaching Telemetry */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-lg p-3 bg-zinc-900/40 border border-zinc-800 text-center space-y-0.5">
+              <span className="text-[11px] text-zinc-500 font-medium block">Pacing</span>
+              <span className="text-base font-semibold text-zinc-100">{telemetry.wpm || 135} <span className="text-xs font-normal text-zinc-500">WPM</span></span>
             </div>
 
-            {/* STAR Coverage Gauges */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-zinc-400 font-medium">STAR Framework Coverage</span>
-                <span className="text-[11px] text-indigo-400">Auto-detected live</span>
-              </div>
-              <div className="grid grid-cols-4 gap-2">
-                {[
-                  { key: 'situation', label: 'S', title: 'Situation' },
-                  { key: 'task', label: 'T', title: 'Task' },
-                  { key: 'action', label: 'A', title: 'Action' },
-                  { key: 'result', label: 'R', title: 'Result' },
-                ].map(({ key, label, title }) => {
-                  const active = telemetry.starCoverage[key];
+            <div className="rounded-lg p-3 bg-zinc-900/40 border border-zinc-800 text-center space-y-0.5">
+              <span className="text-[11px] text-zinc-500 font-medium block">Fillers Detected</span>
+              <span className="text-base font-semibold text-zinc-100">{telemetry.fillerCount || 0}</span>
+            </div>
+
+            <div className="rounded-lg p-3 bg-zinc-900/40 border border-zinc-800 text-center space-y-0.5">
+              <span className="text-[11px] text-zinc-500 font-medium block">STAR Structure</span>
+              <div className="flex items-center justify-center gap-1 mt-1">
+                {['S', 'T', 'A', 'R'].map((letter, i) => {
+                  const key = ['situation', 'task', 'action', 'result'][i];
+                  const covered = telemetry.starCoverage?.[key];
                   return (
-                    <div
-                      key={key}
-                      title={title}
-                      className={`flex flex-col items-center justify-center p-2 rounded-xl border text-center transition-all ${
-                        active
-                          ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300 shadow-sm shadow-emerald-500/10'
-                          : 'bg-white/[0.02] border-white/5 text-zinc-400'
+                    <span
+                      key={letter}
+                      className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                        covered
+                          ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-800/60'
+                          : 'bg-zinc-800/80 text-zinc-500'
                       }`}
                     >
-                      <span className="text-sm font-bold">{label}</span>
-                      <span className="text-[10px] mt-0.5">{title}</span>
-                    </div>
+                      {letter}
+                    </span>
                   );
                 })}
               </div>
             </div>
-
-            {/* Speech Signals: Pacing (WPM) & Filler Counter */}
-            <div className="grid grid-cols-2 gap-3 pt-2">
-              <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5">
-                <span className="text-[11px] text-zinc-400 block">Pacing (WPM)</span>
-                <div className="flex items-baseline gap-1.5 mt-1">
-                  <span className="text-lg font-bold text-white">{telemetry.wpm || '--'}</span>
-                  <span className={`text-[10px] font-medium ${
-                    telemetry.wpm >= 120 && telemetry.wpm <= 165
-                      ? 'text-emerald-400'
-                      : telemetry.wpm > 165
-                      ? 'text-amber-400'
-                      : 'text-zinc-400'
-                  }`}>
-                    {telemetry.wpm >= 120 && telemetry.wpm <= 165 ? 'Optimal' : telemetry.wpm > 165 ? 'Fast' : 'Steady'}
-                  </span>
-                </div>
-              </div>
-
-              <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5">
-                <span className="text-[11px] text-zinc-400 block">Fillers Detected</span>
-                <div className="flex items-baseline gap-1.5 mt-1">
-                  <span className={`text-lg font-bold ${telemetry.fillerCount > 3 ? 'text-rose-400' : 'text-white'}`}>
-                    {telemetry.fillerCount}
-                  </span>
-                  <span className="text-[10px] text-zinc-400">words</span>
-                </div>
-              </div>
-            </div>
           </div>
+        </div>
 
-          {/* Full Live Conversation Transcript */}
-          <div className="rounded-2xl p-5 bg-white/[0.03] border border-white/10 backdrop-blur-xl flex flex-col h-[340px]">
-            <div className="flex items-center justify-between pb-3 border-b border-white/5 shrink-0">
-              <h3 className="text-xs font-semibold text-white tracking-wide uppercase flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-purple-400" />
-                Live Dialogue Record
-              </h3>
-              <span className="text-[11px] text-zinc-400">{transcript.length} turns</span>
+        {/* Right Column: Live Conversation Transcript */}
+        <div className="lg:col-span-5 flex flex-col gap-3">
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 flex flex-col h-[520px]">
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-800/80 mb-3">
+              <div className="flex items-center gap-2 text-xs font-medium text-zinc-300">
+                <MessageSquare className="w-3.5 h-3.5 text-zinc-400" />
+                <span>Interview Transcript</span>
+              </div>
+              <span className="text-[11px] text-zinc-500 font-mono">
+                {transcript.length} turns
+              </span>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-3 pt-3 pr-1 text-xs">
+            {/* Transcript scrollable container */}
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1 text-xs">
               {transcript.length === 0 ? (
-                <div className="h-full flex items-center justify-center text-zinc-400 text-center italic">
-                  Conversation transcript will appear here turn by turn...
+                <div className="h-full flex items-center justify-center text-zinc-500 text-center p-6">
+                  <p>The conversation transcript will appear here in real time.</p>
                 </div>
               ) : (
-                transcript.map((item, idx) => (
+                transcript.map((msg, idx) => (
                   <div
                     key={idx}
-                    className={`p-3 rounded-xl ${
-                      item.speaker === 'agent'
-                        ? 'bg-indigo-500/10 border border-indigo-500/20 text-zinc-200'
-                        : 'bg-emerald-500/10 border border-emerald-500/20 text-zinc-200 ml-4'
+                    className={`p-3 rounded-lg border leading-relaxed ${
+                      msg.speaker === 'agent'
+                        ? 'bg-zinc-900/80 border-zinc-800 text-zinc-200'
+                        : 'bg-zinc-950 border-zinc-800/60 text-zinc-300'
                     }`}
                   >
-                    <div className="flex items-center justify-between mb-1 text-[11px] font-semibold">
-                      <span className={item.speaker === 'agent' ? 'text-indigo-400' : 'text-emerald-400'}>
-                        {item.speaker === 'agent' ? 'AI Placement Coach' : 'You (Candidate)'}
-                      </span>
-                    </div>
-                    <p className="leading-relaxed">{item.text}</p>
+                    <span className="text-[10px] font-semibold text-zinc-400 block mb-1">
+                      {msg.speaker === 'agent' ? 'Interviewer' : 'Candidate'}
+                    </span>
+                    <p>{msg.text}</p>
                   </div>
                 ))
               )}
               <div ref={transcriptEndRef} />
+            </div>
+
+            {/* Optional Text Fallback Input */}
+            <div className="pt-3 border-t border-zinc-800/80">
+              <form onSubmit={handleManualSubmit} className="flex gap-2">
+                <input
+                  type="text"
+                  value={textInput}
+                  onChange={(e) => setTextInput(e.target.value)}
+                  placeholder="Or type your answer here..."
+                  className="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-700"
+                />
+                <button
+                  type="submit"
+                  disabled={!textInput.trim() || isProcessing}
+                  className="px-3 py-1.5 bg-white text-zinc-950 hover:bg-zinc-200 font-medium rounded-lg text-xs transition-colors disabled:bg-zinc-800 disabled:text-zinc-600 disabled:cursor-not-allowed flex items-center gap-1"
+                >
+                  <Send className="w-3 h-3" />
+                </button>
+              </form>
             </div>
           </div>
         </div>
